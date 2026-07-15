@@ -1,0 +1,2121 @@
+﻿<Window
+    x:Class="FlatFileList.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:behaviors="clr-namespace:FlatFileList.Behaviors"
+    xmlns:converters="clr-namespace:FlatFileList.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:helper="clr-namespace:FlatFileList.Helpers"
+    xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+    xmlns:local="clr-namespace:FlatFileList"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+    Title="{Binding Title.Value}"
+    Width="1000"
+    Height="600"
+    d:DataContext="{d:DesignInstance local:MainWindowViewModelDesignMode,
+                                     IsDesignTimeCreatable=True}"
+    FocusManager.FocusedElement="{Binding ElementName=TextBoxSearchDirectoryPath}"
+    mc:Ignorable="d">
+    <Window.Resources>
+        <local:BindingProxy x:Key="proxy" Data="{Binding}" />
+        <local:BindingProxy x:Key="FileListProxy" Data="{Binding ElementName=FileList}" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibility" />
+        <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+        <converters:ComparisonConverter x:Key="ComparisonConverter" />
+        <converters:DatetimeConverter x:Key="DatetimeConverter" />
+        <sys:Double x:Key="FileIconImageMaxSize">20</sys:Double>
+        <sys:Int32 x:Key="ToolTipInitialShowDelay">200</sys:Int32>
+        <GridLength x:Key="ImageButtonGridWidth">16</GridLength>
+        <sys:Double x:Key="ButtonSize">16</sys:Double>
+        <sys:Double x:Key="ButtonIconSize">14</sys:Double>
+        <!--  1ボタン + 1ピクセル  -->
+        <Thickness x:Key="OneButtonPadding">0,0,17,0</Thickness>
+        <!--  2ボタン + 1ピクセル  -->
+        <Thickness x:Key="TwoButtonPadding">0,0,33,0</Thickness>
+        <Style x:Key="PackIconButtonStyle" TargetType="materialDesign:PackIcon">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Width" Value="{StaticResource ButtonIconSize}" />
+            <Setter Property="Height" Value="{StaticResource ButtonIconSize}" />
+        </Style>
+        <Style x:Key="IconButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="{StaticResource ToolTipInitialShowDelay}" />
+            <Setter Property="Width" Value="{StaticResource ButtonSize}" />
+            <Setter Property="Height" Value="{StaticResource ButtonSize}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                            x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            SnapsToDevicePixels="true">
+                            <ContentPresenter
+                                x:Name="contentPresenter"
+                                Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                Focusable="False"
+                                RecognizesAccessKey="True" />
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="false">
+                                <Setter TargetName="contentPresenter" Property="TextElement.Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+
+                                <!--<Setter TargetName="border" Property="Background" Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}" />-->
+                                <Setter TargetName="border" Property="Background" Value="Transparent" />
+
+                                <Setter TargetName="border" Property="Opacity" Value="0.56" />
+                            </Trigger>
+
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource {x:Static SystemColors.GradientActiveCaptionBrushKey}}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style
+            x:Key="IconToggleButtonStyle"
+            BasedOn="{StaticResource {x:Type ToggleButton}}"
+            TargetType="ToggleButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="{StaticResource ToolTipInitialShowDelay}" />
+            <Setter Property="Width" Value="{StaticResource ButtonSize}" />
+            <Setter Property="Height" Value="{StaticResource ButtonSize}" />
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="BorderThickness" Value="1" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style
+            x:Key="IconToggleRadioButtonStyle"
+            BasedOn="{StaticResource IconToggleButtonStyle}"
+            TargetType="RadioButton">
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
+        <Style x:Key="GroupBoxStyle" TargetType="GroupBox">
+            <Setter Property="BorderBrush" Value="Black" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
+        <Style TargetType="ToolTip">
+            <Setter Property="LayoutTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="{Binding Data.WindowScale.Value, Source={StaticResource proxy}}" ScaleY="{Binding Data.WindowScale.Value, Source={StaticResource proxy}}" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ContextMenu">
+            <Setter Property="LayoutTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="{Binding Data.WindowScale.Value, Source={StaticResource proxy}}" ScaleY="{Binding Data.WindowScale.Value, Source={StaticResource proxy}}" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CopyToColipboardFileNamesMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Header" Value="ファイル名をコピー" />
+            <Setter Property="Command" Value="{Binding Data.CopyToColipboardFileNames, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
+            <Setter Property="Icon">
+                <Setter.Value>
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="ClipboardTextMultipleOutline" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CopyToColipboardRelativeFilePathsMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Header" Value="ファイルの相対パスをコピー" />
+            <Setter Property="Command" Value="{Binding Data.CopyToColipboardRelativeFilePaths, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
+            <Setter Property="Icon">
+                <Setter.Value>
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="ClipboardTextMultipleOutline" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CopyToColipboardAbsoluteFilePathsMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Header" Value="ファイルの絶対パスをコピー" />
+            <Setter Property="Command" Value="{Binding Data.CopyToColipboardAbsoluteFilePaths, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
+            <Setter Property="Icon">
+                <Setter.Value>
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="ClipboardTextMultipleOutline" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="OpenFilesMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Header" Value="ファイルを開く" />
+            <Setter Property="Command" Value="{Binding Data.OpenFiles, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
+            <Setter Property="Icon">
+                <Setter.Value>
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="OpenInApp" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CopyToColipboardDirectoryNameMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Header" Value="フォルダー名をコピー" />
+            <Setter Property="Command" Value="{Binding Data.CopyToColipboardSingleText, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding Name}" />
+            <Setter Property="Icon">
+                <Setter.Value>
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="ClipboardTextOutline" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CopyToColipboardRelativeDirectoryNameMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Header" Value="フォルダーの相対パスをコピー" />
+            <Setter Property="Command" Value="{Binding Data.CopyToColipboardSingleText, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding RelativePath}" />
+            <Setter Property="Icon">
+                <Setter.Value>
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="ClipboardTextOutline" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CopyToColipboardAbsoluteDirectoryNameMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Header" Value="フォルダーの絶対パスをコピー" />
+            <Setter Property="Command" Value="{Binding Data.CopyToColipboardSingleText, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding TargetPath}" />
+            <Setter Property="Icon">
+                <Setter.Value>
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="ClipboardTextOutline" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ShowFileProperties" TargetType="MenuItem">
+            <Setter Property="Header" Value="プロパティ" />
+            <Setter Property="Command" Value="{Binding Data.ShowFileProperties, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
+            <Setter Property="Icon">
+                <Setter.Value>
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="WrenchOutline" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ShowDirectoryProperties" TargetType="MenuItem">
+            <Setter Property="Header" Value="プロパティ" />
+            <Setter Property="Command" Value="{Binding Data.ShowDirectoryProperties, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding AbsolutePath}" />
+            <Setter Property="Icon">
+                <Setter.Value>
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderWrenchOutline" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="OpenDirectoryButtonStyle" TargetType="Button">
+            <Setter Property="Command" Value="{Binding Data.OpenDirectory, Source={StaticResource proxy}}" />
+            <Setter Property="CommandParameter" Value="{Binding TargetPath}" />
+            <Setter Property="IsEnabled" Value="{Binding IsEnabled, TargetNullValue=false, FallbackValue=False}" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=DataGridRow, Mode=FindAncestor}, Path=IsSelected}" Value="True">
+                    <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGridCell}}" />
+                    <Setter Property="BorderThickness" Value="0" />
+                </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="False">
+                    <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGridCell}}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    <i:Interaction.Behaviors>
+        <behaviors:WindowClosingBehavior />
+    </i:Interaction.Behaviors>
+    <Window.InputBindings>
+        <KeyBinding
+            Key="S"
+            Command="{Binding Search}"
+            Modifiers="Ctrl" />
+    </Window.InputBindings>
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo ProgressState="{Binding WindowProgressState.Value}" ProgressValue="{Binding ProgressPer.Value}" />
+    </Window.TaskbarItemInfo>
+    <Grid>
+        <Grid.LayoutTransform>
+            <ScaleTransform ScaleX="{Binding WindowScale.Value}" ScaleY="{Binding WindowScale.Value}" />
+        </Grid.LayoutTransform>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="auto" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            Grid.Row="0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            IsEnabled="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ScrollViewer
+                Grid.Row="0"
+                Grid.Column="0"
+                HorizontalAlignment="Stretch"
+                VerticalScrollBarVisibility="Auto">
+                <Grid HorizontalAlignment="Stretch" Grid.IsSharedSizeScope="True">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="auto" MinHeight="150" />
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="auto" />
+                    </Grid.RowDefinitions>
+                    <GroupBox
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        Style="{StaticResource GroupBoxStyle}">
+                        <GroupBox.Header>
+                            <TextBlock Text="検索条件" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                <TextBlock.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock>
+                                            以下を設定し検索ボタンをクリックし、ファイルを一覧に表示する。<LineBreak />
+                                            ・一覧を表示するフォルダーのフルパス<LineBreak />
+                                            ・検索後、取得しないプロパティ<LineBreak />
+                                            ・検索時、ファイル取得対象外とする条件</TextBlock>
+                                    </ToolTip>
+                                </TextBlock.ToolTip>
+                            </TextBlock>
+                        </GroupBox.Header>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="auto" SharedSizeGroup="label" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" SharedSizeGroup="action1" />
+                                <ColumnDefinition SharedSizeGroup="action1" />
+                                <ColumnDefinition Width="1" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="auto" SharedSizeGroup="SearchRowHeight" />
+                                <RowDefinition Height="auto" SharedSizeGroup="SearchRowHeight" />
+                                <RowDefinition Height="auto" />
+                                <RowDefinition Height="auto" />
+                                <RowDefinition Height="auto" SharedSizeGroup="SearchRowHeight" />
+                            </Grid.RowDefinitions>
+                            <TextBlock
+                                Grid.Row="0"
+                                Grid.Column="0"
+                                Text="フォルダーパス" />
+                            <TextBox
+                                x:Name="TextBoxSearchDirectoryPath"
+                                Grid.Row="0"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="4"
+                                Padding="{StaticResource TwoButtonPadding}"
+                                HorizontalAlignment="Stretch"
+                                x:FieldModifier="private"
+                                IsEnabled="{Binding ExistsFileLists.Value, Converter={StaticResource InvertedBoolConverter}}"
+                                Text="{Binding DirectoryPath.Value, UpdateSourceTrigger=PropertyChanged}">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:TextBoxBehavior x:Name="TextBoxSearchDirectoryPathBehavior" />
+                                </i:Interaction.Behaviors>
+                            </TextBox>
+                            <Button
+                                Grid.Row="0"
+                                Grid.Column="2"
+                                IsEnabled="{Binding ExistsFileLists.Value, Converter={StaticResource InvertedBoolConverter}}"
+                                Style="{StaticResource IconButtonStyle}">
+                                <Button.ToolTip>
+                                    <ToolTip Content="フォルダを開く" />
+                                </Button.ToolTip>
+                                <materialDesign:PackIcon Kind="FolderOpen" Style="{StaticResource PackIconButtonStyle}" />
+                                <i:Interaction.Behaviors>
+                                    <behaviors:FolderSelectBehavior SelectedPath="{Binding DirectoryPath.Value}" />
+                                </i:Interaction.Behaviors>
+                            </Button>
+                            <Button
+                                Grid.Row="0"
+                                Grid.Column="3"
+                                Style="{StaticResource IconButtonStyle}">
+                                <Button.ToolTip>
+                                    <ToolTip Content="テキストを削除する" />
+                                </Button.ToolTip>
+                                <materialDesign:PackIcon Kind="Clear" Style="{StaticResource PackIconButtonStyle}" />
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Click">
+                                        <i:InvokeCommandAction Command="{Binding ClearSearchResult}" />
+                                        <i:CallMethodAction MethodName="Clear" TargetObject="{Binding ElementName=TextBoxSearchDirectoryPathBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=TextBoxSearchDirectoryPathBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Button>
+                            <TextBlock
+                                Grid.Row="1"
+                                Grid.Column="0"
+                                Text="取得対象外" />
+                            <CheckBox
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Content="前回保存日時"
+                                IsChecked="{Binding IsIgnoreGettingLastSaveTime.Value}"
+                                IsEnabled="{Binding ExistsFileLists.Value, Converter={StaticResource InvertedBoolConverter}}" />
+                            <TextBlock
+                                Grid.Row="2"
+                                Grid.Column="0"
+                                Text="検索対象外" />
+                            <StackPanel
+                                Grid.Row="2"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="4"
+                                IsEnabled="{Binding ExistsFileLists.Value, Converter={StaticResource InvertedBoolConverter}}">
+                                <WrapPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                    <CheckBox Content="隠しフォルダー" IsChecked="{Binding IsExcludeHiddenDirectory.Value}" />
+                                    <CheckBox Content="システムフォルダー" IsChecked="{Binding IsExcludeSystemDirectory.Value}" />
+                                    <CheckBox Content=".始まりのフォルダー" IsChecked="{Binding IsExcludeDotStartDirectory.Value}" />
+                                </WrapPanel>
+                                <WrapPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                    <CheckBox Content="隠しファイル" IsChecked="{Binding IsExcludeHiddenFile.Value}" />
+                                    <CheckBox Content="システムファイル" IsChecked="{Binding IsExcludeSystemFile.Value}" />
+                                    <CheckBox Content=".始まりのファイル" IsChecked="{Binding IsExcludeDotStartFile.Value}" />
+                                </WrapPanel>
+                            </StackPanel>
+                            <TextBlock
+                                Grid.Row="3"
+                                Grid.Column="0"
+                                Text="対象外拡張子" />
+                            <ItemsControl
+                                Grid.Row="3"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="2"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                ItemsSource="{Binding ExcludeExtensions}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock
+                                            Margin="0,0,5,0"
+                                            Text="{Binding ExtensionText}"
+                                            Visibility="{Binding Enabled.Value, Converter={StaticResource BooleanToVisibility}}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button
+                                x:Name="ExcludeExtensionEditButton"
+                                Grid.Row="3"
+                                Grid.Column="3"
+                                BorderThickness="0"
+                                IsEnabled="{Binding ExistsFileLists.Value, Converter={StaticResource InvertedBoolConverter}}">
+                                <materialDesign:PackIcon Kind="LeadPencil" Style="{StaticResource PackIconButtonStyle}" />
+                                <Button.Style>
+                                    <Style BasedOn="{StaticResource IconButtonStyle}" TargetType="{x:Type Button}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ElementName=ExcludeExtensionEditPopup, Path=IsOpen}" Value="True">
+                                                <Setter Property="IsHitTestVisible" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Click">
+                                        <i:CallMethodAction MethodName="Open" TargetObject="{Binding ElementName=ExcludeExtensionEditPopupBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Button>
+                            <Popup
+                                x:Name="ExcludeExtensionEditPopup"
+                                PlacementTarget="{Binding ElementName=ExcludeExtensionEditButton}"
+                                StaysOpen="False">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:PopupBehavior x:Name="ExcludeExtensionEditPopupBehavior" />
+                                </i:Interaction.Behaviors>
+                                <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}" BorderThickness="1">
+                                    <Grid Margin="2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="auto" />
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="auto" />
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock
+                                            Grid.Row="0"
+                                            Grid.Column="0"
+                                            Text="拡張子" />
+                                        <TextBox
+                                            Grid.Row="0"
+                                            Grid.Column="1"
+                                            Grid.ColumnSpan="2"
+                                            Padding="{StaticResource OneButtonPadding}"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Text="{Binding ExcludeExtensionText.Value, UpdateSourceTrigger=PropertyChanged}">
+                                            <i:Interaction.Behaviors>
+                                                <behaviors:TextBoxBehavior x:Name="ExcludeExtensionTextBoxBehavior" />
+                                            </i:Interaction.Behaviors>
+                                        </TextBox>
+                                        <Button
+                                            Grid.Row="0"
+                                            Grid.Column="2"
+                                            Margin="0,0,1,0"
+                                            Command="{Binding AddExcludeExtension}"
+                                            Style="{StaticResource IconButtonStyle}">
+                                            <materialDesign:PackIcon Kind="Add" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=ExcludeExtensionTextBoxBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+
+                                        </Button>
+                                        <ScrollViewer
+                                            Grid.Row="1"
+                                            Grid.Column="0"
+                                            Grid.ColumnSpan="3"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            HorizontalScrollBarVisibility="Hidden"
+                                            VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl
+                                                HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch"
+                                                BorderThickness="0"
+                                                ItemsSource="{Binding ExcludeExtensions}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <CheckBox Content="{Binding ExtensionText}" IsChecked="{Binding Enabled.Value}" />
+                                                            <Button Command="{Binding RemoveCommand}" Style="{StaticResource IconButtonStyle}">
+                                                                <materialDesign:PackIcon Kind="Remove" Style="{StaticResource PackIconButtonStyle}" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Grid>
+                                </Border>
+                            </Popup>
+
+                            <Button
+                                Grid.Row="4"
+                                Grid.Column="0"
+                                Grid.ColumnSpan="5"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Command="{Binding Search}"
+                                ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                <Button.ToolTip>
+                                    <ToolTip Content="検索する (Ctrl+S)" />
+                                </Button.ToolTip>
+                                <materialDesign:PackIcon Kind="Search" Style="{StaticResource PackIconButtonStyle}" />
+                            </Button>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Style="{StaticResource GroupBoxStyle}">
+                        <GroupBox.Header>
+                            <TextBlock Text="フィルター条件" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                <TextBlock.ToolTip>
+                                    <ToolTip Content="検索後、表示されているファイル一覧に対して設定するフィルター文字列を設定する。" />
+                                </TextBlock.ToolTip>
+                            </TextBlock>
+                        </GroupBox.Header>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="auto" SharedSizeGroup="label" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition SharedSizeGroup="action1" />
+                                <ColumnDefinition SharedSizeGroup="action1" />
+                                <ColumnDefinition Width="1" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition SharedSizeGroup="SearchRowHeight" />
+                                <RowDefinition SharedSizeGroup="SearchRowHeight" />
+                                <RowDefinition SharedSizeGroup="SearchRowHeight" />
+                                <RowDefinition SharedSizeGroup="SearchRowHeight" />
+                                <RowDefinition SharedSizeGroup="SearchRowHeight" />
+                                <RowDefinition SharedSizeGroup="SearchRowHeight" />
+                            </Grid.RowDefinitions>
+                            <TextBlock
+                                Grid.Row="0"
+                                Grid.Column="0"
+                                Text="ファイル名" />
+                            <TextBox
+                                Name="TextBoxFilteringFileName"
+                                Grid.Row="0"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="4"
+                                Padding="{StaticResource TwoButtonPadding}"
+                                HorizontalAlignment="Stretch"
+                                x:FieldModifier="private"
+                                Text="{Binding FilteringFileNameText.Value, UpdateSourceTrigger=PropertyChanged, Delay=300}">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:TextBoxBehavior x:Name="TextBoxFilteringFileNameBehavior" />
+                                </i:Interaction.Behaviors>
+                            </TextBox>
+                            <ToggleButton
+                                Grid.Row="0"
+                                Grid.Column="2"
+                                IsChecked="{Binding IsRegexFileNameSearchEnabled.Value}"
+                                Style="{StaticResource IconToggleButtonStyle}">
+                                <ToggleButton.ToolTip>
+                                    <ToolTip Content="正規表現を使用する" />
+                                </ToggleButton.ToolTip>
+                                <materialDesign:PackIcon Kind="Regex" Style="{StaticResource PackIconButtonStyle}" />
+                            </ToggleButton>
+                            <Button
+                                Grid.Row="0"
+                                Grid.Column="3"
+                                Style="{StaticResource IconButtonStyle}">
+                                <Button.ToolTip>
+                                    <ToolTip Content="テキストを削除する" />
+                                </Button.ToolTip>
+                                <materialDesign:PackIcon Kind="Clear" Style="{StaticResource PackIconButtonStyle}" />
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Click">
+                                        <i:CallMethodAction MethodName="Clear" TargetObject="{Binding ElementName=TextBoxFilteringFileNameBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=TextBoxFilteringFileNameBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Button>
+                            <TextBlock
+                                Grid.Row="1"
+                                Grid.Column="0"
+                                Text="拡張子" />
+                            <TextBox
+                                x:Name="TextBoxFilteringExtension"
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="4"
+                                Padding="{StaticResource TwoButtonPadding}"
+                                HorizontalAlignment="Stretch"
+                                x:FieldModifier="private"
+                                Text="{Binding FilteringExtensionText.Value, UpdateSourceTrigger=PropertyChanged, Delay=300}">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:TextBoxBehavior x:Name="TextBoxFilteringExtensionBehavior" />
+                                </i:Interaction.Behaviors>
+                            </TextBox>
+                            <ToggleButton
+                                Grid.Row="1"
+                                Grid.Column="2"
+                                IsChecked="{Binding IsRegexExtensionTextSearchEnabled.Value}"
+                                Style="{StaticResource IconToggleButtonStyle}">
+                                <ToggleButton.ToolTip>
+                                    <ToolTip Content="正規表現を使用する" />
+                                </ToggleButton.ToolTip>
+                                <materialDesign:PackIcon Kind="Regex" Style="{StaticResource PackIconButtonStyle}" />
+                            </ToggleButton>
+                            <Button
+                                Grid.Row="1"
+                                Grid.Column="3"
+                                Style="{StaticResource IconButtonStyle}">
+                                <Button.ToolTip>
+                                    <ToolTip Content="テキストを削除する" />
+                                </Button.ToolTip>
+                                <materialDesign:PackIcon Kind="Clear" Style="{StaticResource PackIconButtonStyle}" />
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Click">
+                                        <i:CallMethodAction MethodName="Clear" TargetObject="{Binding ElementName=TextBoxFilteringExtensionBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=TextBoxFilteringExtensionBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Button>
+                            <TextBlock
+                                Grid.Row="2"
+                                Grid.Column="0"
+                                Text="フォルダーパス" />
+                            <TextBox
+                                x:Name="TextBoxFilteringDirectoryName"
+                                Grid.Row="2"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="4"
+                                Padding="{StaticResource TwoButtonPadding}"
+                                HorizontalAlignment="Stretch"
+                                x:FieldModifier="private"
+                                Text="{Binding FilteringDirectoryNameText.Value, UpdateSourceTrigger=PropertyChanged, Delay=300}">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:TextBoxBehavior x:Name="TextBoxFilteringDirectoryNameBehavior" />
+                                </i:Interaction.Behaviors>
+                            </TextBox>
+                            <ToggleButton
+                                Grid.Row="2"
+                                Grid.Column="2"
+                                IsChecked="{Binding IsRegexDirectoryNameSearchEnabled.Value}"
+                                Style="{StaticResource IconToggleButtonStyle}">
+                                <ToggleButton.ToolTip>
+                                    <ToolTip Content="正規表現を使用する" />
+                                </ToggleButton.ToolTip>
+                                <materialDesign:PackIcon Kind="Regex" Style="{StaticResource PackIconButtonStyle}" />
+                            </ToggleButton>
+                            <Button
+                                Grid.Row="2"
+                                Grid.Column="3"
+                                Style="{StaticResource IconButtonStyle}">
+                                <Button.ToolTip>
+                                    <ToolTip Content="テキストを削除する" />
+                                </Button.ToolTip>
+                                <materialDesign:PackIcon Kind="Clear" Style="{StaticResource PackIconButtonStyle}" />
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Click">
+                                        <i:CallMethodAction MethodName="Clear" TargetObject="{Binding ElementName=TextBoxFilteringDirectoryNameBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=TextBoxFilteringDirectoryNameBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Button>
+                            <TextBlock
+                                Grid.Row="3"
+                                Grid.Column="0"
+                                Text="最終更新日時" />
+                            <TextBox
+                                x:Name="TextBoxFilteringLastWriteTime"
+                                Grid.Row="3"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="4"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                helper:TextBoxHelper.Padding="2,0,0,0"
+                                helper:TextBoxHelper.Placeholder="{x:Static local:ConstantObject.LastWriteTimeFormat}"
+                                Text="{Binding FilteringLastWriteTime.Value, Converter={StaticResource DatetimeConverter}, ConverterParameter={x:Static local:ConstantObject.LastWriteTimeFormat}, TargetNullValue=''}">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:TextBoxBehavior x:Name="TextBoxFilteringLastWriteTimeBehavior" />
+                                </i:Interaction.Behaviors>
+                                <i:Interaction.Triggers>
+                                    <i:KeyTrigger Key="Return" ActiveOnFocus="True">
+                                        <i:CallMethodAction MethodName="MoveFocusToNext" TargetObject="{Binding ElementName=TextBoxFilteringLastWriteTimeBehavior}" />
+                                    </i:KeyTrigger>
+                                </i:Interaction.Triggers>
+                            </TextBox>
+                            <Button
+                                x:Name="FilteringLastWriteTimeCompairButton"
+                                Grid.Row="3"
+                                Grid.Column="2"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch">
+                                <materialDesign:PackIcon>
+                                    <materialDesign:PackIcon.Style>
+                                        <Style BasedOn="{StaticResource PackIconButtonStyle}" TargetType="materialDesign:PackIcon">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding FilteringLastWriteTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.Equal}">
+                                                    <Setter Property="Kind" Value="Equal" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringLastWriteTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.NotEqual}">
+                                                    <Setter Property="Kind" Value="NotEqual" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringLastWriteTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.GreaterThan}">
+                                                    <Setter Property="Kind" Value="LessThan" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringLastWriteTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.LessThan}">
+                                                    <Setter Property="Kind" Value="GreaterThan" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringLastWriteTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.GreaterThanOrEqual}">
+                                                    <Setter Property="Kind" Value="LessThanOrEqual" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringLastWriteTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.LessThanOrEqual}">
+                                                    <Setter Property="Kind" Value="GreaterThanOrEqual" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </materialDesign:PackIcon.Style>
+                                </materialDesign:PackIcon>
+                                <Button.Style>
+                                    <Style BasedOn="{StaticResource IconButtonStyle}" TargetType="{x:Type Button}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ElementName=FilteringLastWriteTimeCompairSelectPopup, Path=IsOpen}" Value="True">
+                                                <Setter Property="IsHitTestVisible" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Click">
+                                        <i:CallMethodAction MethodName="Open" TargetObject="{Binding ElementName=FilteringLastWriteTimeCompairSelectPopupBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Button>
+                            <Popup
+                                x:Name="FilteringLastWriteTimeCompairSelectPopup"
+                                PlacementTarget="{Binding ElementName=FilteringLastWriteTimeCompairButton}"
+                                StaysOpen="False">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:PopupBehavior x:Name="FilteringLastWriteTimeCompairSelectPopupBehavior" />
+                                </i:Interaction.Behaviors>
+                                <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}" BorderThickness="1">
+                                    <UniformGrid Margin="2" Columns="2">
+                                        <RadioButton IsChecked="{Binding FilteringLastWriteTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.Equal}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="Equal" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringLastWriteTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringLastWriteTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.NotEqual}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="NotEqual" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringLastWriteTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringLastWriteTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.GreaterThan}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="LessThan" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringLastWriteTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringLastWriteTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.LessThan}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="GreaterThan" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringLastWriteTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringLastWriteTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.GreaterThanOrEqual}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="LessThanOrEqual" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringLastWriteTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringLastWriteTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.LessThanOrEqual}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="GreaterThanOrEqual" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringLastWriteTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                    </UniformGrid>
+                                </Border>
+                            </Popup>
+                            <Button
+                                Grid.Row="3"
+                                Grid.Column="3"
+                                Style="{StaticResource IconButtonStyle}">
+                                <Button.ToolTip>
+                                    <ToolTip Content="テキストを削除する" />
+                                </Button.ToolTip>
+                                <materialDesign:PackIcon Kind="Clear" Style="{StaticResource PackIconButtonStyle}" />
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Click">
+                                        <i:CallMethodAction MethodName="Clear" TargetObject="{Binding ElementName=TextBoxFilteringLastWriteTimeBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=TextBoxFilteringLastWriteTimeBehavior}" />
+                                        <i:CallMethodAction MethodName="MoveFocusToNext" TargetObject="{Binding ElementName=TextBoxFilteringLastWriteTimeBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=TextBoxFilteringLastWriteTimeBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Button>
+                            <TextBlock
+                                Grid.Row="4"
+                                Grid.Column="0"
+                                Text="前回保存日時" />
+                            <TextBox
+                                x:Name="TextBoxFilteringModifiedTime"
+                                Grid.Row="4"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="4"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                helper:TextBoxHelper.Padding="2,0,0,0"
+                                helper:TextBoxHelper.Placeholder="{x:Static local:ConstantObject.ModifiedTimeFormat}"
+                                Text="{Binding FilteringModifiedTime.Value, Converter={StaticResource DatetimeConverter}, ConverterParameter={x:Static local:ConstantObject.ModifiedTimeFormat}, TargetNullValue=''}">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:TextBoxBehavior x:Name="TextBoxFilteringModifiedTimeBehavior" />
+                                </i:Interaction.Behaviors>
+                                <i:Interaction.Triggers>
+                                    <i:KeyTrigger Key="Return" ActiveOnFocus="True">
+                                        <i:CallMethodAction MethodName="MoveFocusToNext" TargetObject="{Binding ElementName=TextBoxFilteringModifiedTimeBehavior}" />
+                                    </i:KeyTrigger>
+                                </i:Interaction.Triggers>
+                            </TextBox>
+                            <Button
+                                x:Name="FilteringModifiedTimeCompairButton"
+                                Grid.Row="4"
+                                Grid.Column="2"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch">
+                                <materialDesign:PackIcon>
+                                    <materialDesign:PackIcon.Style>
+                                        <Style BasedOn="{StaticResource PackIconButtonStyle}" TargetType="materialDesign:PackIcon">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding FilteringModifiedTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.Equal}">
+                                                    <Setter Property="Kind" Value="Equal" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringModifiedTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.NotEqual}">
+                                                    <Setter Property="Kind" Value="NotEqual" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringModifiedTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.GreaterThan}">
+                                                    <Setter Property="Kind" Value="LessThan" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringModifiedTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.LessThan}">
+                                                    <Setter Property="Kind" Value="GreaterThan" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringModifiedTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.GreaterThanOrEqual}">
+                                                    <Setter Property="Kind" Value="LessThanOrEqual" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding FilteringModifiedTimeComparisonConditionType.Value}" Value="{x:Static i:ComparisonConditionType.LessThanOrEqual}">
+                                                    <Setter Property="Kind" Value="GreaterThanOrEqual" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </materialDesign:PackIcon.Style>
+                                </materialDesign:PackIcon>
+                                <Button.Style>
+                                    <Style BasedOn="{StaticResource IconButtonStyle}" TargetType="{x:Type Button}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ElementName=FilteringModifiedTimeCompairSelectPopup, Path=IsOpen}" Value="True">
+                                                <Setter Property="IsHitTestVisible" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Click">
+                                        <i:CallMethodAction MethodName="Open" TargetObject="{Binding ElementName=FilteringModifiedTimeCompairSelectPopupBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Button>
+                            <Popup
+                                x:Name="FilteringModifiedTimeCompairSelectPopup"
+                                PlacementTarget="{Binding ElementName=FilteringModifiedTimeCompairButton}"
+                                StaysOpen="False">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:PopupBehavior x:Name="FilteringModifiedTimeCompairSelectPopupBehavior" />
+                                </i:Interaction.Behaviors>
+                                <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=Window}}" BorderThickness="1">
+                                    <UniformGrid Margin="2" Columns="2">
+                                        <RadioButton IsChecked="{Binding FilteringModifiedTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.Equal}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="Equal" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringModifiedTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringModifiedTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.NotEqual}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="NotEqual" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringModifiedTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringModifiedTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.GreaterThan}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="LessThan" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringModifiedTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringModifiedTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.LessThan}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="GreaterThan" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringModifiedTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringModifiedTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.GreaterThanOrEqual}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="LessThanOrEqual" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringModifiedTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                        <RadioButton IsChecked="{Binding FilteringModifiedTimeComparisonConditionType.Value, Converter={StaticResource ComparisonConverter}, ConverterParameter={x:Static i:ComparisonConditionType.LessThanOrEqual}}" Style="{StaticResource IconToggleRadioButtonStyle}">
+                                            <materialDesign:PackIcon Kind="GreaterThanOrEqual" Style="{StaticResource PackIconButtonStyle}" />
+                                            <i:Interaction.Triggers>
+                                                <i:EventTrigger EventName="Click">
+                                                    <i:CallMethodAction MethodName="Close" TargetObject="{Binding ElementName=FilteringModifiedTimeCompairSelectPopupBehavior}" />
+                                                </i:EventTrigger>
+                                            </i:Interaction.Triggers>
+                                        </RadioButton>
+                                    </UniformGrid>
+                                </Border>
+                            </Popup>
+                            <Button
+                                Grid.Row="4"
+                                Grid.Column="3"
+                                Style="{StaticResource IconButtonStyle}">
+                                <Button.ToolTip>
+                                    <ToolTip Content="テキストを削除する" />
+                                </Button.ToolTip>
+                                <materialDesign:PackIcon Kind="Clear" Style="{StaticResource PackIconButtonStyle}" />
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Click">
+                                        <i:CallMethodAction MethodName="Clear" TargetObject="{Binding ElementName=TextBoxFilteringModifiedTimeBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=TextBoxFilteringModifiedTimeBehavior}" />
+                                        <i:CallMethodAction MethodName="MoveFocusToNext" TargetObject="{Binding ElementName=TextBoxFilteringModifiedTimeBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=TextBoxFilteringModifiedTimeBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </Button>
+                            <TextBlock
+                                Grid.Row="5"
+                                Grid.Column="0"
+                                materialDesign:TextBlockAssist.AutoToolTip="True"
+                                Text="非表示" />
+                            <CheckBox
+                                Grid.Row="5"
+                                Grid.Column="1"
+                                Grid.ColumnSpan="4"
+                                Content="有効 (無効時はグレーアウト表示)"
+                                IsChecked="{Binding IsHighlightVisibled.Value}">
+                                <i:Interaction.Triggers>
+                                    <i:EventTrigger EventName="Checked">
+                                        <i:CallMethodAction MethodName="ScrollIntoViewSelectedItem" TargetObject="{Binding ElementName=FileListDataGridBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=FileListDataGridBehavior}" />
+                                    </i:EventTrigger>
+                                    <i:EventTrigger EventName="Unchecked">
+                                        <i:CallMethodAction MethodName="ScrollIntoViewSelectedItem" TargetObject="{Binding ElementName=FileListDataGridBehavior}" />
+                                        <i:CallMethodAction MethodName="Focus" TargetObject="{Binding ElementName=FileListDataGridBehavior}" />
+                                    </i:EventTrigger>
+                                </i:Interaction.Triggers>
+                            </CheckBox>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Style="{StaticResource GroupBoxStyle}">
+                        <GroupBox.Header>
+                            <TextBlock Text="起動アプリ" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                <TextBlock.ToolTip>
+                                    <ToolTip>
+                                        <TextBlock>
+                                            指定した拡張子のファイルを開く際、アプリケーションや引数を設定する。<LineBreak />
+                                            未指定の場合はWindowsで設定されている標準のアプリケーションで起動する。</TextBlock>
+                                    </ToolTip>
+                                </TextBlock.ToolTip>
+                            </TextBlock>
+                        </GroupBox.Header>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <UniformGrid Grid.Row="0" Rows="1">
+                                <Button
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch"
+                                    Command="{Binding RemoveCustomProcessRow}"
+                                    CommandParameter="{Binding ElementName=CustomExtensions, Path=SelectedItems}"
+                                    ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                    <Button.ToolTip>
+                                        <ToolTip Content="選択行削除" />
+                                    </Button.ToolTip>
+                                    <materialDesign:PackIcon Kind="PlaylistRemove" />
+                                </Button>
+                            </UniformGrid>
+                            <DataGrid
+                                x:Name="CustomExtensions"
+                                Grid.Row="1"
+                                AutoGenerateColumns="False"
+                                CanUserAddRows="True"
+                                CanUserDeleteRows="True"
+                                ItemsSource="{Binding CustomApplicationProcesses}"
+                                RowHeaderWidth="0">
+                                <i:Interaction.Behaviors>
+                                    <behaviors:DataGridSortResetBehavior />
+                                </i:Interaction.Behaviors>
+                                <DataGrid.Columns>
+                                    <DataGridCheckBoxColumn Binding="{Binding IsEnabled.Value, UpdateSourceTrigger=PropertyChanged, FallbackValue=true}">
+                                        <DataGridCheckBoxColumn.Header>
+                                            <DataGridColumnHeader Content="有効" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                                <DataGridColumnHeader.ToolTip>
+                                                    <ToolTip Content="チェック付きのみ有効" />
+                                                </DataGridColumnHeader.ToolTip>
+                                            </DataGridColumnHeader>
+                                        </DataGridCheckBoxColumn.Header>
+                                    </DataGridCheckBoxColumn>
+                                    <DataGridTextColumn Binding="{Binding Extension.Value, UpdateSourceTrigger=PropertyChanged}">
+                                        <DataGridTextColumn.Header>
+                                            <DataGridColumnHeader Content="拡張子" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                                <DataGridColumnHeader.ToolTip>
+                                                    <ToolTip Content="ドット付き拡張子" />
+                                                </DataGridColumnHeader.ToolTip>
+                                            </DataGridColumnHeader>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Binding="{Binding Application.Value, UpdateSourceTrigger=PropertyChanged}">
+                                        <DataGridTextColumn.Header>
+                                            <DataGridColumnHeader Content="アプリケーション" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                                <DataGridColumnHeader.ToolTip>
+                                                    <ToolTip Content="アプリケーション起動用パス" />
+                                                </DataGridColumnHeader.ToolTip>
+                                            </DataGridColumnHeader>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Width="*" Binding="{Binding Args.Value, UpdateSourceTrigger=PropertyChanged}">
+                                        <DataGridTextColumn.Header>
+                                            <DataGridColumnHeader Content="引数" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                                <DataGridColumnHeader.ToolTip>
+                                                    <ToolTip>
+                                                        <TextBlock>
+                                                            デフォルトだと末尾にファイル名が入る。<LineBreak />
+                                                            間にファイルパスを入れる場合は「%0」と記載すると置き換えて実行される。</TextBlock>
+                                                    </ToolTip>
+                                                </DataGridColumnHeader.ToolTip>
+                                            </DataGridColumnHeader>
+                                        </DataGridTextColumn.Header>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </GroupBox>
+                    <GridSplitter
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        BorderBrush="Gainsboro"
+                        BorderThickness="2"
+                        ResizeDirection="Rows" />
+                </Grid>
+            </ScrollViewer>
+            <GridSplitter
+                Grid.Column="1"
+                Width="5"
+                HorizontalAlignment="Center"
+                Background="Gainsboro"
+                BorderThickness="1" />
+            <Grid Grid.Row="0" Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Text="ルートフォルダーパス：" />
+                <TextBlock
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Text="{Binding RootPath.Value}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap" />
+                <DataGrid
+                    Name="FileList"
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    Grid.ColumnSpan="2"
+                    AutoGenerateColumns="False"
+                    CanUserAddRows="False"
+                    CanUserDeleteRows="False"
+                    CanUserResizeRows="False"
+                    EnableColumnVirtualization="True"
+                    EnableRowVirtualization="True"
+                    ItemsSource="{Binding FileProperties.View}"
+                    RowHeaderWidth="0"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.VirtualizationMode="Standard">
+                    <i:Interaction.Behaviors>
+                        <behaviors:DataGridSortResetBehavior />
+                        <behaviors:DataGridBehavior x:Name="FileListDataGridBehavior" />
+                    </i:Interaction.Behaviors>
+                    <DataGrid.InputBindings>
+                        <KeyBinding
+                            Key="C"
+                            Command="{Binding CopyToColipboardFileNames}"
+                            CommandParameter="{Binding ElementName=FileList, Path=SelectedItems}"
+                            Modifiers="Ctrl" />
+                        <KeyBinding
+                            Key="Return"
+                            Command="{Binding OpenFile}"
+                            CommandParameter="{Binding ElementName=FileList, Path=SelectedItem.FilePath}" />
+                    </DataGrid.InputBindings>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsHighlighted.Value}" Value="False" />
+                                        <Condition Binding="{Binding DataContext.IsHighlightVisibled.Value, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
+                                    <MultiDataTrigger.Setters>
+                                        <Setter Property="Background" Value="WhiteSmoke" />
+                                        <Setter Property="Foreground" Value="DarkGray" />
+                                    </MultiDataTrigger.Setters>
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn CanUserSort="True" SortMemberPath="FileName">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                    <DataGridColumnHeader.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock>
+                                                ダブルクリック/エンターキー：ファイルを開く<LineBreak />
+                                                Ctrl+C：ファイル名をコピー</TextBlock>
+                                        </ToolTip>
+                                    </DataGridColumnHeader.ToolTip>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="OpenInApp" />
+                                        <TextBlock Text="ファイル名" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <Image
+                                            MaxHeight="{StaticResource FileIconImageMaxSize}"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            DockPanel.Dock="Left"
+                                            Source="{Binding FileIcon}"
+                                            Stretch="Uniform" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Center"
+                                            Text="{Binding FileName}"
+                                            TextTrimming="CharacterEllipsis" />
+                                        <DockPanel.InputBindings>
+                                            <MouseBinding
+                                                Command="{Binding Data.OpenFile, Source={StaticResource proxy}}"
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGrid}, Path=SelectedItem.FilePath}"
+                                                MouseAction="LeftDoubleClick" />
+                                        </DockPanel.InputBindings>
+                                        <DockPanel.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowFileProperties}" />
+                                            </ContextMenu>
+                                        </DockPanel.ContextMenu>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn CanUserSort="True" SortMemberPath="LastWriteTime.Value">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                    <DataGridColumnHeader.ToolTip>
+                                        <ToolTip Content="ファイルの更新に合わせて更新される。" />
+                                    </DataGridColumnHeader.ToolTip>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="ClockOutline" />
+                                        <TextBlock Text="最終更新日時" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                        <TextBlock Text="{Binding LastWriteTimeString.Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                                        <Grid.InputBindings>
+                                            <MouseBinding
+                                                Command="{Binding Data.OpenFile, Source={StaticResource proxy}}"
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGrid}, Path=SelectedItem.FilePath}"
+                                                MouseAction="LeftDoubleClick" />
+                                        </Grid.InputBindings>
+                                        <Grid.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowFileProperties}" />
+                                            </ContextMenu>
+                                        </Grid.ContextMenu>
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn CanUserSort="True" SortMemberPath="ModifiedTime.Value">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
+                                    <DataGridColumnHeader.ToolTip>
+                                        <ToolTip Content="Officeファイルの更新に合わせて更新される。" />
+                                    </DataGridColumnHeader.ToolTip>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="ClockOutline" />
+                                        <TextBlock Text="前回保存日時" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                        <TextBlock Text="{Binding ModifiedTimeString.Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                                        <Grid.InputBindings>
+                                            <MouseBinding
+                                                Command="{Binding Data.OpenFile, Source={StaticResource proxy}}"
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGrid}, Path=SelectedItem.FilePath}"
+                                                MouseAction="LeftDoubleClick" />
+                                        </Grid.InputBindings>
+                                        <Grid.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowFileProperties}" />
+                                            </ContextMenu>
+                                        </Grid.ContextMenu>
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[0].Name"
+                            Visibility="{Binding Data.IsDirectory1Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー1" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[0]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[1].Name"
+                            Visibility="{Binding Data.IsDirectory2Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー2" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[1]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[2].Name"
+                            Visibility="{Binding Data.IsDirectory3Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー3" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[2]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[3].Name"
+                            Visibility="{Binding Data.IsDirectory4Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー4" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[3]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[4].Name"
+                            Visibility="{Binding Data.IsDirectory5Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー5" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[4]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[5].Name"
+                            Visibility="{Binding Data.IsDirectory6Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー6" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[5]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[6].Name"
+                            Visibility="{Binding Data.IsDirectory7Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー7" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[6]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[7].Name"
+                            Visibility="{Binding Data.IsDirectory8Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー8" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[7]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[8].Name"
+                            Visibility="{Binding Data.IsDirectory9Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー9" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[8]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[9].Name"
+                            Visibility="{Binding Data.IsDirectory10Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー10" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[9]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[10].Name"
+                            Visibility="{Binding Data.IsDirectory11Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー11" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[10]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[11].Name"
+                            Visibility="{Binding Data.IsDirectory12Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー12" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[11]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[12].Name"
+                            Visibility="{Binding Data.IsDirectory13Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー13" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[12]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[13].Name"
+                            Visibility="{Binding Data.IsDirectory14Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー14" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[13]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[14].Name"
+                            Visibility="{Binding Data.IsDirectory15Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー15" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[14]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[15].Name"
+                            Visibility="{Binding Data.IsDirectory16Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー16" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[15]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[16].Name"
+                            Visibility="{Binding Data.IsDirectory17Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー17" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[16]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[17].Name"
+                            Visibility="{Binding Data.IsDirectory18Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー18" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[17]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[18].Name"
+                            Visibility="{Binding Data.IsDirectory19Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー19" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[18]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn
+                            CanUserSort="True"
+                            SortMemberPath="Directories[19].Name"
+                            Visibility="{Binding Data.IsDirectory20Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
+                            <DataGridTemplateColumn.Header>
+                                <DataGridColumnHeader>
+                                    <DockPanel
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        LastChildFill="True">
+                                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="FolderOpenOutline" />
+                                        <TextBlock Text="フォルダー20" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </DataGridColumnHeader>
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button DataContext="{Binding Directories[19]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <Button.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+                                                <Separator />
+                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+                                            </ContextMenu>
+                                        </Button.ContextMenu>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Grid>
+        <StatusBar
+            Grid.Row="1"
+            Grid.Column="0"
+            Grid.ColumnSpan="3">
+            <StatusBarItem DockPanel.Dock="Right">
+                <ComboBox
+                    Width="60"
+                    HorizontalContentAlignment="Right"
+                    DisplayMemberPath="Value"
+                    ItemsSource="{Binding WindowScaleTransformPers}"
+                    SelectedValue="{Binding WindowScaleTransformPer.Value}"
+                    SelectedValuePath="Key" />
+            </StatusBarItem>
+            <StatusBarItem DockPanel.Dock="Right">
+                <TextBlock>表示倍率</TextBlock>
+            </StatusBarItem>
+            <Separator Width="1" DockPanel.Dock="Right" />
+            <StatusBarItem>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto" />
+                    </Grid.ColumnDefinitions>
+                    <ProgressBar
+                        Grid.Column="0"
+                        Width="150"
+                        IsIndeterminate="{Binding IsIndeterminate.Value}"
+                        Maximum="1"
+                        Value="{Binding ProgressPer.Value, Mode=OneWay}">
+                        <ProgressBar.Style>
+                            <Style TargetType="{x:Type ProgressBar}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsBackgroundTaskRunning.Value}" Value="True">
+                                        <Setter Property="Foreground" Value="Orange" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ProgressBar.Style>
+                    </ProgressBar>
+                    <TextBlock HorizontalAlignment="Center" Text="{Binding ProgressBarText.Value}" />
+                </Grid>
+            </StatusBarItem>
+            <StatusBarItem Width="auto">
+                <TextBlock Text="{Binding StatusText.Value}" TextTrimming="CharacterEllipsis" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>
