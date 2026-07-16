@@ -44,6 +44,8 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
+            <!--  独自テンプレートで BasedOn していないため、Fluent のテーマ対応前景色を明示指定（ダーク=白 / ライト=黒）。PackIcon がこれを継承する。  -->
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="ToolTipService.InitialShowDelay" Value="{StaticResource ToolTipInitialShowDelay}" />
             <Setter Property="Width" Value="{StaticResource ButtonSize}" />
             <Setter Property="Height" Value="{StaticResource ButtonSize}" />
@@ -55,6 +57,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
                             SnapsToDevicePixels="true">
                             <ContentPresenter
                                 x:Name="contentPresenter"
@@ -76,7 +79,11 @@
                             </Trigger>
 
                             <Trigger Property="IsMouseOver" Value="true">
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource {x:Static SystemColors.GradientActiveCaptionBrushKey}}" />
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+
+                            <Trigger Property="IsPressed" Value="true">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -106,26 +113,34 @@
             <Setter Property="Width" Value="NaN" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
         </Style>
-        <Style x:Key="GroupBoxStyle" TargetType="GroupBox">
-            <Setter Property="BorderBrush" Value="Black" />
-            <Setter Property="BorderThickness" Value="1" />
+        <Style
+            x:Key="GroupBoxStyle"
+            BasedOn="{StaticResource DefaultGroupBoxStyle}"
+            TargetType="GroupBox">
+            <!--  Fluent は暗黙の {x:Type GroupBox} を登録しないため、名前付きキー DefaultGroupBoxStyle を継承する。  -->
+            <!--  Fluent 既定の枠はダークでほぼ不可視のため、テーマ対応の可視ストロークを明示してカード然とさせる。  -->
             <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
         </Style>
-        <Style TargetType="ToolTip">
+        <Style BasedOn="{StaticResource {x:Type ToolTip}}" TargetType="ToolTip">
             <Setter Property="LayoutTransform">
                 <Setter.Value>
                     <ScaleTransform ScaleX="{Binding Data.WindowScale.Value, Source={StaticResource proxy}}" ScaleY="{Binding Data.WindowScale.Value, Source={StaticResource proxy}}" />
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style TargetType="ContextMenu">
+        <Style BasedOn="{StaticResource {x:Type ContextMenu}}" TargetType="ContextMenu">
             <Setter Property="LayoutTransform">
                 <Setter.Value>
                     <ScaleTransform ScaleX="{Binding Data.WindowScale.Value, Source={StaticResource proxy}}" ScaleY="{Binding Data.WindowScale.Value, Source={StaticResource proxy}}" />
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="CopyToColipboardFileNamesMenuItemStyle" TargetType="MenuItem">
+        <Style
+            x:Key="CopyToColipboardFileNamesMenuItemStyle"
+            BasedOn="{StaticResource {x:Type MenuItem}}"
+            TargetType="MenuItem">
             <Setter Property="Header" Value="ファイル名をコピー" />
             <Setter Property="Command" Value="{Binding Data.CopyToColipboardFileNames, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
@@ -135,7 +150,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="CopyToColipboardRelativeFilePathsMenuItemStyle" TargetType="MenuItem">
+        <Style
+            x:Key="CopyToColipboardRelativeFilePathsMenuItemStyle"
+            BasedOn="{StaticResource {x:Type MenuItem}}"
+            TargetType="MenuItem">
             <Setter Property="Header" Value="ファイルの相対パスをコピー" />
             <Setter Property="Command" Value="{Binding Data.CopyToColipboardRelativeFilePaths, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
@@ -145,7 +163,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="CopyToColipboardAbsoluteFilePathsMenuItemStyle" TargetType="MenuItem">
+        <Style
+            x:Key="CopyToColipboardAbsoluteFilePathsMenuItemStyle"
+            BasedOn="{StaticResource {x:Type MenuItem}}"
+            TargetType="MenuItem">
             <Setter Property="Header" Value="ファイルの絶対パスをコピー" />
             <Setter Property="Command" Value="{Binding Data.CopyToColipboardAbsoluteFilePaths, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
@@ -155,7 +176,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="OpenFilesMenuItemStyle" TargetType="MenuItem">
+        <Style
+            x:Key="OpenFilesMenuItemStyle"
+            BasedOn="{StaticResource {x:Type MenuItem}}"
+            TargetType="MenuItem">
             <Setter Property="Header" Value="ファイルを開く" />
             <Setter Property="Command" Value="{Binding Data.OpenFiles, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
@@ -165,7 +189,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="CopyToColipboardDirectoryNameMenuItemStyle" TargetType="MenuItem">
+        <Style
+            x:Key="CopyToColipboardDirectoryNameMenuItemStyle"
+            BasedOn="{StaticResource {x:Type MenuItem}}"
+            TargetType="MenuItem">
             <Setter Property="Header" Value="フォルダー名をコピー" />
             <Setter Property="Command" Value="{Binding Data.CopyToColipboardSingleText, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding Name}" />
@@ -175,7 +202,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="CopyToColipboardRelativeDirectoryNameMenuItemStyle" TargetType="MenuItem">
+        <Style
+            x:Key="CopyToColipboardRelativeDirectoryNameMenuItemStyle"
+            BasedOn="{StaticResource {x:Type MenuItem}}"
+            TargetType="MenuItem">
             <Setter Property="Header" Value="フォルダーの相対パスをコピー" />
             <Setter Property="Command" Value="{Binding Data.CopyToColipboardSingleText, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding RelativePath}" />
@@ -185,7 +215,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="CopyToColipboardAbsoluteDirectoryNameMenuItemStyle" TargetType="MenuItem">
+        <Style
+            x:Key="CopyToColipboardAbsoluteDirectoryNameMenuItemStyle"
+            BasedOn="{StaticResource {x:Type MenuItem}}"
+            TargetType="MenuItem">
             <Setter Property="Header" Value="フォルダーの絶対パスをコピー" />
             <Setter Property="Command" Value="{Binding Data.CopyToColipboardSingleText, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding TargetPath}" />
@@ -195,7 +228,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="ShowFileProperties" TargetType="MenuItem">
+        <Style
+            x:Key="ShowFileProperties"
+            BasedOn="{StaticResource {x:Type MenuItem}}"
+            TargetType="MenuItem">
             <Setter Property="Header" Value="プロパティ" />
             <Setter Property="Command" Value="{Binding Data.ShowFileProperties, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding Data.SelectedItems, Source={StaticResource FileListProxy}}" />
@@ -205,7 +241,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="ShowDirectoryProperties" TargetType="MenuItem">
+        <Style
+            x:Key="ShowDirectoryProperties"
+            BasedOn="{StaticResource {x:Type MenuItem}}"
+            TargetType="MenuItem">
             <Setter Property="Header" Value="プロパティ" />
             <Setter Property="Command" Value="{Binding Data.ShowDirectoryProperties, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding AbsolutePath}" />
@@ -215,7 +254,10 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="OpenDirectoryButtonStyle" TargetType="Button">
+        <Style
+            x:Key="OpenDirectoryButtonStyle"
+            BasedOn="{StaticResource {x:Type Button}}"
+            TargetType="Button">
             <Setter Property="Command" Value="{Binding Data.OpenDirectory, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding TargetPath}" />
             <Setter Property="IsEnabled" Value="{Binding IsEnabled, TargetNullValue=false, FallbackValue=False}" />
@@ -269,6 +311,7 @@
             <ScrollViewer
                 Grid.Row="0"
                 Grid.Column="0"
+                Padding="0,0,12,0"
                 HorizontalAlignment="Stretch"
                 VerticalScrollBarVisibility="Auto">
                 <Grid HorizontalAlignment="Stretch" Grid.IsSharedSizeScope="True">
@@ -1038,7 +1081,8 @@
                                 CanUserAddRows="True"
                                 CanUserDeleteRows="True"
                                 ItemsSource="{Binding CustomApplicationProcesses}"
-                                RowHeaderWidth="0">
+                                RowHeaderWidth="0"
+                                Style="{StaticResource DefaultDataGridStyle}">
                                 <i:Interaction.Behaviors>
                                     <behaviors:DataGridSortResetBehavior />
                                 </i:Interaction.Behaviors>
@@ -1092,17 +1136,10 @@
                         Grid.Column="0"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Center"
-                        BorderBrush="Gainsboro"
-                        BorderThickness="2"
                         ResizeDirection="Rows" />
                 </Grid>
             </ScrollViewer>
-            <GridSplitter
-                Grid.Column="1"
-                Width="5"
-                HorizontalAlignment="Center"
-                Background="Gainsboro"
-                BorderThickness="1" />
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Center" />
             <Grid Grid.Row="0" Grid.Column="2">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="auto" />
@@ -1135,6 +1172,7 @@
                     EnableRowVirtualization="True"
                     ItemsSource="{Binding FileProperties.View}"
                     RowHeaderWidth="0"
+                    Style="{StaticResource DefaultDataGridStyle}"
                     VirtualizingPanel.IsVirtualizing="True"
                     VirtualizingPanel.VirtualizationMode="Standard">
                     <i:Interaction.Behaviors>
@@ -1153,7 +1191,7 @@
                             CommandParameter="{Binding ElementName=FileList, Path=SelectedItem.FilePath}" />
                     </DataGrid.InputBindings>
                     <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow">
+                        <Style BasedOn="{StaticResource DefaultDataGridRowStyle}" TargetType="DataGridRow">
                             <Style.Triggers>
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
@@ -2078,7 +2116,7 @@
             Grid.ColumnSpan="3">
             <StatusBarItem DockPanel.Dock="Right">
                 <ComboBox
-                    Width="60"
+                    Width="80"
                     HorizontalContentAlignment="Right"
                     DisplayMemberPath="Value"
                     ItemsSource="{Binding WindowScaleTransformPers}"
@@ -2096,12 +2134,13 @@
                     </Grid.ColumnDefinitions>
                     <ProgressBar
                         Grid.Column="0"
+                        Height="30"
                         Width="150"
                         IsIndeterminate="{Binding IsIndeterminate.Value}"
                         Maximum="1"
                         Value="{Binding ProgressPer.Value, Mode=OneWay}">
                         <ProgressBar.Style>
-                            <Style TargetType="{x:Type ProgressBar}">
+                            <Style BasedOn="{StaticResource {x:Type ProgressBar}}" TargetType="{x:Type ProgressBar}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsBackgroundTaskRunning.Value}" Value="True">
                                         <Setter Property="Foreground" Value="Orange" />

@@ -3,26 +3,35 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:FlatFileList"
-    StartupUri="MainWindow.xaml">
+    StartupUri="MainWindow.xaml"
+    ThemeMode="System">
     <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!--  App.xaml は起動の早い段階でパースされ、StaticResource は parse 時に一度だけ解決される。  -->
+                <!--  ThemeMode だけだと下の {x:Type CheckBox} などが Fluent 適用前(Aero2)を焼き込むため、Fluent 辞書を明示マージして型キー参照を Fluent 実体へ解決させる。  -->
+                <ResourceDictionary Source="pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-        <Style x:Key="TextBlockBase" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
+            <Style x:Key="TextBlockBase" BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="{x:Type TextBlock}">
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
 
-        <Style x:Key="CheckBoxBase" TargetType="{x:Type CheckBox}" BasedOn="{StaticResource {x:Type CheckBox}}">
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
+            <!--  Fluent の CheckBox は {x:Type CheckBox} ではなく DefaultCheckBoxStyle を明示指定して継承する。  -->
+            <!--  App.xaml では {x:Type CheckBox} が parse 時に Aero2 へ解決されてしまうため、Fluent の名前付きキーを使う。  -->
+            <Style x:Key="CheckBoxBase" BasedOn="{StaticResource DefaultCheckBoxStyle}" TargetType="{x:Type CheckBox}">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
 
-        <Style
-            x:Key="{x:Type TextBlock}"
-            BasedOn="{StaticResource TextBlockBase}"
-            TargetType="{x:Type TextBlock}" />
-        <Style
-            x:Key="{x:Type CheckBox}"
-            BasedOn="{StaticResource CheckBoxBase}"
-            TargetType="{x:Type CheckBox}" />
-
+            <Style
+                x:Key="{x:Type TextBlock}"
+                BasedOn="{StaticResource TextBlockBase}"
+                TargetType="{x:Type TextBlock}" />
+            <Style
+                x:Key="{x:Type CheckBox}"
+                BasedOn="{StaticResource CheckBoxBase}"
+                TargetType="{x:Type CheckBox}" />
+        </ResourceDictionary>
     </Application.Resources>
 </Application>
