@@ -254,10 +254,38 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!--  ContextMenu をセルテンプレート内にインライン定義すると、テンプレート展開のたびに丸ごと構築される。  -->
+        <!--  行の実体化コストを下げるため、共有リソースとして定義して全行・全列で1インスタンスを使い回す。  -->
+        <!--  ファイル系の列(ファイル名/更新日時/前回保存日時)は全項目が proxy 経由で束縛されるため、行の DataContext に依存しない。  -->
+        <ContextMenu x:Key="FileCellContextMenu">
+            <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+            <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+            <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+            <Separator />
+            <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+            <Separator />
+            <MenuItem Style="{StaticResource ShowFileProperties}" />
+        </ContextMenu>
+        <!--  フォルダー系の列はフォルダー名/相対パス等を DataContext(=Directories[i])から取るため、  -->
+        <!--  共有インスタンスでは PlacementTarget(=クリックされた Button)経由で解決する。  -->
+        <ContextMenu x:Key="DirectoryCellContextMenu" DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+            <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
+            <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
+            <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
+            <Separator />
+            <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
+            <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
+            <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
+            <Separator />
+            <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
+            <Separator />
+            <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
+        </ContextMenu>
         <Style
             x:Key="OpenDirectoryButtonStyle"
             BasedOn="{StaticResource {x:Type Button}}"
             TargetType="Button">
+            <Setter Property="ContextMenu" Value="{StaticResource DirectoryCellContextMenu}" />
             <Setter Property="Command" Value="{Binding Data.OpenDirectory, Source={StaticResource proxy}}" />
             <Setter Property="CommandParameter" Value="{Binding TargetPath}" />
             <Setter Property="IsEnabled" Value="{Binding IsEnabled, TargetNullValue=false, FallbackValue=False}" />
@@ -1174,7 +1202,7 @@
                     RowHeaderWidth="0"
                     Style="{StaticResource DefaultDataGridStyle}"
                     VirtualizingPanel.IsVirtualizing="True"
-                    VirtualizingPanel.VirtualizationMode="Standard">
+                    VirtualizingPanel.VirtualizationMode="Recycling">
                     <i:Interaction.Behaviors>
                         <behaviors:DataGridSortResetBehavior />
                         <behaviors:DataGridBehavior x:Name="FileListDataGridBehavior" />
@@ -1231,9 +1259,12 @@
                                     <DockPanel
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch"
+                                        ContextMenu="{StaticResource FileCellContextMenu}"
                                         LastChildFill="True">
+                                        <!--  MaxHeight のみだとデコード後のビットマップ寸法に対して measure が走るため、寸法を固定して行の measure を省く。  -->
                                         <Image
-                                            MaxHeight="{StaticResource FileIconImageMaxSize}"
+                                            Width="{StaticResource FileIconImageMaxSize}"
+                                            Height="{StaticResource FileIconImageMaxSize}"
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
                                             DockPanel.Dock="Left"
@@ -1251,17 +1282,6 @@
                                                 CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGrid}, Path=SelectedItem.FilePath}"
                                                 MouseAction="LeftDoubleClick" />
                                         </DockPanel.InputBindings>
-                                        <DockPanel.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowFileProperties}" />
-                                            </ContextMenu>
-                                        </DockPanel.ContextMenu>
                                     </DockPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1283,7 +1303,10 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                    <Grid
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        ContextMenu="{StaticResource FileCellContextMenu}">
                                         <TextBlock Text="{Binding LastWriteTimeString.Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                                         <Grid.InputBindings>
                                             <MouseBinding
@@ -1291,17 +1314,6 @@
                                                 CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGrid}, Path=SelectedItem.FilePath}"
                                                 MouseAction="LeftDoubleClick" />
                                         </Grid.InputBindings>
-                                        <Grid.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowFileProperties}" />
-                                            </ContextMenu>
-                                        </Grid.ContextMenu>
                                     </Grid>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1323,7 +1335,10 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                    <Grid
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        ContextMenu="{StaticResource FileCellContextMenu}">
                                         <TextBlock Text="{Binding ModifiedTimeString.Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                                         <Grid.InputBindings>
                                             <MouseBinding
@@ -1331,17 +1346,6 @@
                                                 CommandParameter="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=DataGrid}, Path=SelectedItem.FilePath}"
                                                 MouseAction="LeftDoubleClick" />
                                         </Grid.InputBindings>
-                                        <Grid.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowFileProperties}" />
-                                            </ContextMenu>
-                                        </Grid.ContextMenu>
                                     </Grid>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1365,21 +1369,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[0]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1403,21 +1392,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[1]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1441,21 +1415,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[2]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1479,21 +1438,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[3]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1517,21 +1461,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[4]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1555,21 +1484,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[5]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1593,21 +1507,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[6]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1631,21 +1530,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[7]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1669,21 +1553,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[8]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1707,21 +1576,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[9]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1745,21 +1599,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[10]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1783,21 +1622,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[11]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1821,21 +1645,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[12]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1859,21 +1668,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[13]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1897,21 +1691,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[14]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1935,21 +1714,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[15]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -1973,21 +1737,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[16]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -2011,21 +1760,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[17]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -2049,21 +1783,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[18]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -2087,21 +1806,6 @@
                                 <DataTemplate>
                                     <Button DataContext="{Binding Directories[19]}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Style="{StaticResource CopyToColipboardDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeDirectoryNameMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteDirectoryNameMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource CopyToColipboardFileNamesMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardRelativeFilePathsMenuItemStyle}" />
-                                                <MenuItem Style="{StaticResource CopyToColipboardAbsoluteFilePathsMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource OpenFilesMenuItemStyle}" />
-                                                <Separator />
-                                                <MenuItem Style="{StaticResource ShowDirectoryProperties}" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
                                     </Button>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>

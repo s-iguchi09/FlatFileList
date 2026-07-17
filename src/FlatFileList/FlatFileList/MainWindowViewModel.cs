@@ -93,6 +93,14 @@ namespace FlatFileList
 
         #region 一覧データ関連
 
+        //NOTE:MaxCount/SuccessedCount/StatusText は ReactiveProperty のため、書き込みごとに Dispatcher へポストされ、
+        //     派生する ProgressPer/ProgressBarText/WindowProgressState も再計算される。
+        //     ファイル1件ごとに更新すると UI スレッドが飽和して操作が固まるため、この件数ごとに間引く。
+        private const int ProgressReportInterval = 100;
+
+        //NOTE:UI スレッドへの追加をまとめる単位。
+        private const int AddBatchSize = 500;
+
         public CollectionViewSource FileProperties { get; }
         protected ReactiveCollection<FileProperty> _fileProperties { get; } = [];
 
@@ -204,7 +212,16 @@ namespace FlatFileList
             {
                 var item = _fileProperties.SingleOrDefault(p => p.FilePath == e.FullPath);
                 item?.UpdateLastWriteTime();
-                Thread t = new(() => item?.UpdateModifiedTime(IsIgnoreGettingLastSaveTime.Value));
+                Thread t = new(() =>
+                {
+                    if (item is null)
+                    {
+                        return;
+                    }
+
+                    using ShellPropertyReader reader = new();
+                    item.UpdateModifiedTime(IsIgnoreGettingLastSaveTime.Value, reader);
+                });
                 t.SetApartmentState(ApartmentState.STA);
                 t.Start();
             }).AddTo(_disposable);
@@ -319,6 +336,11 @@ namespace FlatFileList
                 MaxCount.Value = 0;
                 SuccessedCount.Value = 0;
                 IsDirectoriesExists.ForEach(p => p.Value = false);
+                //NOTE:FileProperty は Rx の購読を抱えるため、Clear の前に破棄しないと検索のたびに蓄積して徐々に重くなる。
+                foreach (var f in _fileProperties)
+                {
+                    f.Dispose();
+                }
                 _fileProperties.Clear();
             };
 
@@ -344,7 +366,17 @@ namespace FlatFileList
                         RootPath.Value = DirectoryPath.Value.Last() == '\\' ? DirectoryPath.Value : $"{DirectoryPath.Value}\\";
                         Func<string, bool> validateDirectoryFunc = CreateValidatorForDirectory(IsExcludeDotStartDirectory.Value, IsExcludeHiddenDirectory.Value, IsExcludeSystemDirectory.Value);
                         Func<string, bool> validateFileFunc = CreateValidatorForFile(IsExcludeDotStartFile.Value, IsExcludeHiddenFile.Value, IsExcludeSystemFile.Value, ExcludeExtensions.Where(ext => ext.Enabled.Value).Select(ext =>ext.ExtensionText.StartsWith(".") ? ext.ExtensionText : $".{ext.ExtensionText}"));
-                        allFilesString = DirectoryEx.GetAllFiles(RootPath.Value, validateDirectoryFunc).Where(p => validateFileFunc(p)).Select(f => { StatusText.Value = $"File found. [\"{f}\"]"; MaxCount.Value++; return f; }).ToList();
+                        var foundCount = 0;
+                        allFilesString = DirectoryEx.GetAllFiles(RootPath.Value, validateDirectoryFunc).Where(p => validateFileFunc(p)).Select(f =>
+                        {
+                            foundCount++;
+                            if (foundCount % ProgressReportInterval == 0)
+                            {
+                                StatusText.Value = $"File found. [\"{f}\"]";
+                                MaxCount.Value = foundCount;
+                            }
+                            return f;
+                        }).ToList();
                         MaxCount.Value = allFilesString.Count();
                     }
 
@@ -356,17 +388,49 @@ namespace FlatFileList
                     Func<DateTime?, bool> funcIsModifiedTimeMatch = CreateIsMatchDatetimeFunc(FilteringModifiedTimeComparisonConditionType.Value, FilteringModifiedTime.Value);
                     Func<string, bool> funcIsDirectoryNamesMatch = CreateIsMatchSingleFunc(IsRegexDirectoryNameSearchEnabled.Value, FilteringDirectoryNameText.Value);
 
-                    var allFiles = allFilesString.Select(p =>
+                    //NOTE:以前はファイル1件ごとに Dispatcher.Invoke して UI スレッド上で FileProperty を構築していたため、
+                    //     1件につき同期マーシャリング1回 + 進捗更新の Dispatcher ポストが発生していた。
+                    //     FileIcon は Freeze 済みでスレッドを跨げるため、構築はこのバックグラウンドスレッドで行い、
+                    //     UI スレッドへの追加のみをバッチにまとめる。
+                    var allFiles = new List<FileProperty>(allFilesString.Count());
+                    var batch = new List<FileProperty>(AddBatchSize);
+
+                    void FlushBatch()
                     {
-                        SuccessedCount.Value++;
-                        return Application.Current.Dispatcher.Invoke(() =>
+                        if (batch.Count == 0)
                         {
-                            FileProperty f = new(p, RootPath.Value);
-                            f.UpdateIsHighlighted(funcIsFileNameMatch, funcIsExtensionTextMatch, funcIsDirectoryNamesMatch, funcIsLastWriteTimeMatch, funcIsModifiedTimeMatch);
-                            _fileProperties.Add(f);
-                            return f;
+                            return;
+                        }
+
+                        var adding = batch.ToArray();
+                        batch.Clear();
+
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            foreach (var f in adding)
+                            {
+                                _fileProperties.Add(f);
+                            }
                         });
-                    }).ToList();
+                    }
+
+                    foreach (var p in allFilesString)
+                    {
+                        FileProperty f = new(p, RootPath.Value);
+                        f.UpdateIsHighlighted(funcIsFileNameMatch, funcIsExtensionTextMatch, funcIsDirectoryNamesMatch, funcIsLastWriteTimeMatch, funcIsModifiedTimeMatch);
+
+                        allFiles.Add(f);
+                        batch.Add(f);
+
+                        if (batch.Count >= AddBatchSize)
+                        {
+                            FlushBatch();
+                            SuccessedCount.Value = allFiles.Count;
+                        }
+                    }
+
+                    FlushBatch();
+                    SuccessedCount.Value = allFiles.Count;
 
                     Debug.WriteLine($"3.{DateTime.Now.ToString()}");
 
@@ -405,13 +469,28 @@ namespace FlatFileList
 
                         Thread t = new(() =>
                         {
+                            //NOTE:Shell.Application と Folder の生成は高コストなため、走査全体で1つの reader を使い回す。
+                            using ShellPropertyReader reader = new();
+
+                            var count = 0;
                             foreach (var f in _fileProperties)
                             {
                                 if (token.IsCancellationRequested)
                                     break;
-                                SuccessedCount.Value++;
-                                f.UpdateModifiedTime(IsIgnoreGettingLastSaveTime.Value);
+
+                                count++;
+                                //NOTE:SuccessedCount は ReactiveProperty のため書き込みごとに Dispatcher へポストされ、
+                                //     派生する ProgressPer/ProgressBarText/WindowProgressState も再計算される。
+                                //     1件ごとに更新すると UI スレッドが飽和してスクロールが止まるため間引く。
+                                if (count % ProgressReportInterval == 0)
+                                {
+                                    SuccessedCount.Value = count;
+                                }
+
+                                f.UpdateModifiedTime(IsIgnoreGettingLastSaveTime.Value, reader);
                             }
+
+                            SuccessedCount.Value = count;
                         });
                         t.SetApartmentState(ApartmentState.STA);
                         t.Start();

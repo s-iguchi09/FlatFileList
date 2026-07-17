@@ -57,6 +57,10 @@ namespace FlatFileList.Extensions
             }
         }
 
+        [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool DeleteObject(IntPtr hObject);
+
         private static BitmapSource? ConvertToBitmapSource(Bitmap? bitmap)
         {
             if (bitmap == null)
@@ -66,14 +70,25 @@ namespace FlatFileList.Extensions
 
             var hBitmap = bitmap.GetHbitmap();
 
-            // CreateBitmapSourceFromHBitmap()で System.Windows.Media.Imaging.BitmapSource に変換する
-            BitmapSource bitmapsource = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                                    hBitmap,
-                                    IntPtr.Zero,
-                                    Int32Rect.Empty,
-                                    BitmapSizeOptions.FromEmptyOptions());
+            try
+            {
+                // CreateBitmapSourceFromHBitmap()で System.Windows.Media.Imaging.BitmapSource に変換する
+                BitmapSource bitmapsource = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                                        hBitmap,
+                                        IntPtr.Zero,
+                                        Int32Rect.Empty,
+                                        BitmapSizeOptions.FromEmptyOptions());
 
-            return bitmapsource;
+                //NOTE:Freeze することで全行が共有するアイコンの変更追跡が不要になり、スレッドを跨いでの生成も可能になる。
+                bitmapsource.Freeze();
+
+                return bitmapsource;
+            }
+            finally
+            {
+                //NOTE:GetHbitmap() が返す GDI ハンドルは明示的に解放しないとリークする。
+                DeleteObject(hBitmap);
+            }
         }
 
         public static bool ToBoolean(this string val, bool defaultValue)
@@ -104,57 +119,6 @@ namespace FlatFileList.Extensions
             {
                 return null;
             }
-        }
-
-        /// <summary>
-        /// プロパティの値を取得
-        /// </summary>
-        /// <param name="file"></param>
-        /// <param name="property_index"></param>
-        /// <returns></returns>
-        [STAThread]
-        public static string GetFilePropertyValue(this string file, int property_index)
-        {
-
-            var shellAppType = Type.GetTypeFromProgID("Shell.Application");
-            
-            if(shellAppType == null)
-            {
-                return string.Empty;
-            }
-
-            Shell32.Shell? shell = Activator.CreateInstance(shellAppType) as Shell32.Shell;
-
-            if(shell == null)
-            {
-                return string.Empty;
-            }
-
-            string ret = "";
-
-            try
-            {
-                //フォルダを取得
-                Shell32.Folder objFolder = shell.NameSpace(Path.GetDirectoryName(file));
-
-                //ファイルを取得
-                Shell32.FolderItem folderItem = objFolder.ParseName(Path.GetFileName(file));
-
-                //プロパティ情報を取得
-                ret = objFolder.GetDetailsOf(folderItem, property_index);
-
-                if (ret.Trim() == "")
-                {
-                    return "";
-                }
-
-            }
-            catch
-            {
-                return "";
-            }
-
-            return ret;
         }
 
 #if NETFRAMEWORK

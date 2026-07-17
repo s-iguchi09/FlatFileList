@@ -6,12 +6,18 @@ using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using System.Reactive.Linq;
 using FlatFileList.Extensions;
+using FlatFileList.Utilities.Shell32;
 using System.Text.RegularExpressions;
 
 namespace FlatFileList.Datas
 {
-    public class FileProperty : INotifyPropertyChanged, IDisposable
+    public partial class FileProperty : INotifyPropertyChanged, IDisposable
     {
+        //NOTE:毎回 new すると走査1回あたり数万回コンパイルが走るため、ソース生成で静的に持つ。
+        [GeneratedRegex(@"[^\x20-\x7F]")]
+        private static partial Regex NonAsciiRegex();
+
+
 #pragma warning disable CS0067
         public event PropertyChangedEventHandler? PropertyChanged;
 #pragma warning restore CS0067
@@ -21,7 +27,7 @@ namespace FlatFileList.Datas
         public ReactivePropertySlim<DateTime> LastWriteTime { get; } = new();
         public ReadOnlyReactivePropertySlim<string> LastWriteTimeString { get; }
         public ReactivePropertySlim<DateTime?> ModifiedTime { get; } = new();
-        public ReadOnlyReactiveProperty<string> ModifiedTimeString { get; }
+        public ReadOnlyReactivePropertySlim<string> ModifiedTimeString { get; }
         public ReactivePropertySlim<bool> IsHighlighted { get; } = new(true);
 
         public string FilePath { get; }
@@ -58,8 +64,10 @@ namespace FlatFileList.Datas
 
             UpdateLastWriteTime();
 
-            LastWriteTimeString = LastWriteTime.ObserveOnUIDispatcher().Select(dt => dt.ToString(ConstantObject.LastWriteTimeFormat)).ToReadOnlyReactivePropertySlim<string>().AddTo(_disposables);
-            ModifiedTimeString = ModifiedTime.ObserveOnUIDispatcher().Select(dt => dt?.ToString(ConstantObject.ModifiedTimeFormat) ?? string.Empty).ToReadOnlyReactiveProperty<string>().AddTo(_disposables);
+            //NOTE:ObserveOnUIDispatcher を挟むとファイル1件ごとに Dispatcher へポストされ、走査中のスクロールを阻害する。
+            //     WPF のバインディングは PropertyChanged を UI スレッドへ自動でマーシャリングするため、ここでの切り替えは不要。
+            LastWriteTimeString = LastWriteTime.Select(dt => dt.ToString(ConstantObject.LastWriteTimeFormat)).ToReadOnlyReactivePropertySlim<string>(string.Empty).AddTo(_disposables);
+            ModifiedTimeString = ModifiedTime.Select(dt => dt?.ToString(ConstantObject.ModifiedTimeFormat) ?? string.Empty).ToReadOnlyReactivePropertySlim<string>(string.Empty).AddTo(_disposables);
         }
 
         public void UpdateLastWriteTime()
@@ -69,9 +77,9 @@ namespace FlatFileList.Datas
         }
 
         [STAThread]
-        public void UpdateModifiedTime(bool isIgnoreGettingLastSaveTime)
+        public void UpdateModifiedTime(bool isIgnoreGettingLastSaveTime, ShellPropertyReader reader)
         {
-            var modifiredTimeString = GetModifiredTimeString();
+            var modifiredTimeString = GetModifiredTimeString(reader);
             if (!isIgnoreGettingLastSaveTime)
             {
                 ModifiedTime.Value = DateTime.TryParse(modifiredTimeString, out DateTime modifiedTime) ? modifiedTime : null;
@@ -79,10 +87,10 @@ namespace FlatFileList.Datas
         }
 
         [STAThread]
-        private string GetModifiredTimeString()
+        private string GetModifiredTimeString(ShellPropertyReader reader)
         {
             //NOTE:154=前回保存日時。正規表現でフォーマット文字を除外。
-            return Regex.Replace(FilePath.GetFilePropertyValue(154), @"[^\u0020-\u007F]", "");
+            return NonAsciiRegex().Replace(reader.GetValue(FilePath, 154), "");
         }
 
         private IEnumerable<DirectoryOpenner> GetDirectoryOpenners(IEnumerable<string> directories)
