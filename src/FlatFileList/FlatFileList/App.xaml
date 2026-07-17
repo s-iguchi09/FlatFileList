@@ -13,6 +13,13 @@
                 <ResourceDictionary Source="pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
+            <Style x:Key="TextBoxBase" BasedOn="{StaticResource DefaultTextBoxStyle}" TargetType="{x:Type TextBox}" >
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <!--<Setter Property="TextWrapping" Value="Wrap"/>-->
+                <!--<Setter Property="AcceptsReturn" Value="True"/>
+                <Setter Property="MaxLines" Value="1"/>-->
+            </Style>
+            
             <Style x:Key="TextBlockBase" BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="{x:Type TextBlock}">
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
@@ -24,6 +31,10 @@
                 <Setter Property="VerticalContentAlignment" Value="Center" />
             </Style>
 
+            <Style
+                x:Key="{x:Type TextBox}"
+                BasedOn="{StaticResource TextBoxBase}"
+                TargetType="{x:Type TextBox}" />
             <Style
                 x:Key="{x:Type TextBlock}"
                 BasedOn="{StaticResource TextBlockBase}"

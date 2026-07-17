@@ -16,6 +16,8 @@
     Height="600"
     d:DataContext="{d:DesignInstance local:MainWindowViewModelDesignMode,
                                      IsDesignTimeCreatable=True}"
+    d:DesignHeight="1000"
+    d:DesignWidth="1000"
     FocusManager.FocusedElement="{Binding ElementName=TextBoxSearchDirectoryPath}"
     mc:Ignorable="d">
     <Window.Resources>
@@ -27,18 +29,20 @@
         <converters:DatetimeConverter x:Key="DatetimeConverter" />
         <sys:Double x:Key="FileIconImageMaxSize">20</sys:Double>
         <sys:Int32 x:Key="ToolTipInitialShowDelay">200</sys:Int32>
-        <GridLength x:Key="ImageButtonGridWidth">16</GridLength>
-        <sys:Double x:Key="ButtonSize">16</sys:Double>
-        <sys:Double x:Key="ButtonIconSize">14</sys:Double>
+        <GridLength x:Key="ImageButtonGridWidth">32</GridLength>
+        <sys:Double x:Key="ButtonSize">32</sys:Double>
+        <sys:Double x:Key="ButtonIconSize">30</sys:Double>
+        <GridLength x:Key="TextBoxRoundWidth">4</GridLength>
         <!--  1ボタン + 1ピクセル  -->
-        <Thickness x:Key="OneButtonPadding">0,0,17,0</Thickness>
+        <Thickness x:Key="OneButtonPadding">0,0,30,0</Thickness>
         <!--  2ボタン + 1ピクセル  -->
-        <Thickness x:Key="TwoButtonPadding">0,0,33,0</Thickness>
+        <Thickness x:Key="TwoButtonPadding">0,0,61,0</Thickness>
         <Style x:Key="PackIconButtonStyle" TargetType="materialDesign:PackIcon">
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Width" Value="{StaticResource ButtonIconSize}" />
             <Setter Property="Height" Value="{StaticResource ButtonIconSize}" />
+            <Setter Property="Margin" Value="0,-6" />
         </Style>
         <Style x:Key="IconButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
@@ -100,6 +104,7 @@
             <Setter Property="ToolTipService.InitialShowDelay" Value="{StaticResource ToolTipInitialShowDelay}" />
             <Setter Property="Width" Value="{StaticResource ButtonSize}" />
             <Setter Property="Height" Value="{StaticResource ButtonSize}" />
+            <Setter Property="Padding" Value="0" />
             <Style.Triggers>
                 <Trigger Property="IsChecked" Value="True">
                     <Setter Property="BorderThickness" Value="1" />
@@ -121,7 +126,8 @@
             <!--  Fluent 既定の枠はダークでほぼ不可視のため、テーマ対応の可視ストロークを明示してカード然とさせる。  -->
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="15,0,0,0"/>
         </Style>
         <Style BasedOn="{StaticResource {x:Type ToolTip}}" TargetType="ToolTip">
             <Setter Property="LayoutTransform">
@@ -332,7 +338,7 @@
             VerticalAlignment="Stretch"
             IsEnabled="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="350" />
                 <ColumnDefinition Width="auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -371,9 +377,9 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="auto" SharedSizeGroup="label" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" SharedSizeGroup="action1" />
+                                <ColumnDefinition Width="{StaticResource ImageButtonGridWidth}" SharedSizeGroup="action1" />
                                 <ColumnDefinition SharedSizeGroup="action1" />
-                                <ColumnDefinition Width="1" />
+                                <ColumnDefinition Width="{StaticResource TextBoxRoundWidth}" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="auto" SharedSizeGroup="SearchRowHeight" />
@@ -490,7 +496,10 @@
                                 Grid.Column="3"
                                 BorderThickness="0"
                                 IsEnabled="{Binding ExistsFileLists.Value, Converter={StaticResource InvertedBoolConverter}}">
-                                <materialDesign:PackIcon Kind="LeadPencil" Style="{StaticResource PackIconButtonStyle}" />
+                                <materialDesign:PackIcon
+                                    Margin="0"
+                                    Kind="LeadPencil"
+                                    Style="{StaticResource PackIconButtonStyle}" />
                                 <Button.Style>
                                     <Style BasedOn="{StaticResource IconButtonStyle}" TargetType="{x:Type Button}">
                                         <Style.Triggers>
@@ -615,7 +624,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition SharedSizeGroup="action1" />
                                 <ColumnDefinition SharedSizeGroup="action1" />
-                                <ColumnDefinition Width="1" />
+                                <ColumnDefinition Width="{StaticResource TextBoxRoundWidth}" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition SharedSizeGroup="SearchRowHeight" />
@@ -760,6 +769,7 @@
                                 Grid.Row="3"
                                 Grid.Column="1"
                                 Grid.ColumnSpan="4"
+                                Padding="{StaticResource TwoButtonPadding}"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
                                 helper:TextBoxHelper.Padding="2,0,0,0"
@@ -907,6 +917,7 @@
                                 Grid.Row="4"
                                 Grid.Column="1"
                                 Grid.ColumnSpan="4"
+                                Padding="{StaticResource TwoButtonPadding}"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
                                 helper:TextBoxHelper.Padding="2,0,0,0"
@@ -1817,7 +1828,8 @@
         <StatusBar
             Grid.Row="1"
             Grid.Column="0"
-            Grid.ColumnSpan="3">
+            Grid.ColumnSpan="3"
+            Padding="0">
             <StatusBarItem DockPanel.Dock="Right">
                 <ComboBox
                     Width="80"
@@ -1838,8 +1850,9 @@
                     </Grid.ColumnDefinitions>
                     <ProgressBar
                         Grid.Column="0"
-                        Height="30"
                         Width="150"
+                        Height="30"
+                        HorizontalAlignment="Stretch"
                         IsIndeterminate="{Binding IsIndeterminate.Value}"
                         Maximum="1"
                         Value="{Binding ProgressPer.Value, Mode=OneWay}">
