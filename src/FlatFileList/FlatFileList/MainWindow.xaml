@@ -1378,7 +1378,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[0]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory1}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1401,7 +1401,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[1]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory2}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1424,7 +1424,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[2]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory3}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1447,7 +1447,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[3]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory4}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1470,7 +1470,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[4]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory5}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1493,7 +1493,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[5]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory6}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1516,7 +1516,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[6]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory7}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1539,7 +1539,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[7]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory8}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1562,7 +1562,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[8]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory9}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1585,7 +1585,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[9]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory10}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1608,7 +1608,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[10]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory11}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1631,7 +1631,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[11]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory12}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1654,7 +1654,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[12]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory13}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1677,7 +1677,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[13]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory14}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1700,7 +1700,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[14]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory15}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1723,7 +1723,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[15]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory16}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1746,7 +1746,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[16]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory17}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1769,7 +1769,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[17]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory18}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1792,7 +1792,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[18]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory19}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>
@@ -1815,7 +1815,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button DataContext="{Binding Directories[19]}" Style="{StaticResource OpenDirectoryButtonStyle}">
+                                    <Button DataContext="{Binding Directory20}" Style="{StaticResource OpenDirectoryButtonStyle}">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                                     </Button>
                                 </DataTemplate>

@@ -39,6 +39,30 @@ namespace FlatFileList.Datas
 
         public List<DirectoryOpenner> Directories { get; }
 
+        //NOTE:XAML から Directories[i] とインデクサ束縛すると、コンテナ再利用(リサイクル)で DataContext が
+        //     差し替わるたびに1セルにつきインデクサ解決が走る(20列分)。直接プロパティにして解決コストを下げる。
+        //     Directories は常に MaxDirectoryColumnCount(20)件へパディングされるため、添字は常に有効。
+        public DirectoryOpenner Directory1 => Directories[0];
+        public DirectoryOpenner Directory2 => Directories[1];
+        public DirectoryOpenner Directory3 => Directories[2];
+        public DirectoryOpenner Directory4 => Directories[3];
+        public DirectoryOpenner Directory5 => Directories[4];
+        public DirectoryOpenner Directory6 => Directories[5];
+        public DirectoryOpenner Directory7 => Directories[6];
+        public DirectoryOpenner Directory8 => Directories[7];
+        public DirectoryOpenner Directory9 => Directories[8];
+        public DirectoryOpenner Directory10 => Directories[9];
+        public DirectoryOpenner Directory11 => Directories[10];
+        public DirectoryOpenner Directory12 => Directories[11];
+        public DirectoryOpenner Directory13 => Directories[12];
+        public DirectoryOpenner Directory14 => Directories[13];
+        public DirectoryOpenner Directory15 => Directories[14];
+        public DirectoryOpenner Directory16 => Directories[15];
+        public DirectoryOpenner Directory17 => Directories[16];
+        public DirectoryOpenner Directory18 => Directories[17];
+        public DirectoryOpenner Directory19 => Directories[18];
+        public DirectoryOpenner Directory20 => Directories[19];
+
         public string RelativeFilePath { get; }
 
         private string _relativeDirectoryPath = string.Empty;
