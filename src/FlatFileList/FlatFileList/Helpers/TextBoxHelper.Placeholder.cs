@@ -46,13 +46,13 @@ namespace FlatFileList.Helpers
 
             if (!textBoxControl.IsLoaded)
             {
-                // Ensure that the events are not added multiple times
-                textBoxControl.Loaded -= TextBoxControl_Loaded;
-                textBoxControl.Loaded += TextBoxControl_Loaded;
+                // 弱参照で購読(多重登録防止のため一度解除してから登録)
+                WeakEventManager<FrameworkElement, RoutedEventArgs>.RemoveHandler(textBoxControl, nameof(FrameworkElement.Loaded), TextBoxControl_Loaded);
+                WeakEventManager<FrameworkElement, RoutedEventArgs>.AddHandler(textBoxControl, nameof(FrameworkElement.Loaded), TextBoxControl_Loaded);
             }
 
-            textBoxControl.TextChanged -= TextBoxControl_TextChanged;
-            textBoxControl.TextChanged += TextBoxControl_TextChanged;
+            WeakEventManager<TextBox, TextChangedEventArgs>.RemoveHandler(textBoxControl, nameof(TextBox.TextChanged), TextBoxControl_TextChanged);
+            WeakEventManager<TextBox, TextChangedEventArgs>.AddHandler(textBoxControl, nameof(TextBox.TextChanged), TextBoxControl_TextChanged);
 
             // If the adorner exists, invalidate it to draw the current text
             if (GetOrCreateAdorner(textBoxControl, out PlaceholderAdorner adorner))
@@ -65,13 +65,13 @@ namespace FlatFileList.Helpers
             {
                 if (!textBoxControl.IsLoaded)
                 {
-                    // Ensure that the events are not added multiple times
-                    textBoxControl.Loaded -= TextBoxControl_Loaded;
-                    textBoxControl.Loaded += TextBoxControl_Loaded;
+                    // 弱参照で購読(多重登録防止のため一度解除してから登録)
+                    WeakEventManager<FrameworkElement, RoutedEventArgs>.RemoveHandler(textBoxControl, nameof(FrameworkElement.Loaded), TextBoxControl_Loaded);
+                    WeakEventManager<FrameworkElement, RoutedEventArgs>.AddHandler(textBoxControl, nameof(FrameworkElement.Loaded), TextBoxControl_Loaded);
                 }
 
-                textBoxControl.TextChanged -= TextBoxControl_TextChanged;
-                textBoxControl.TextChanged += TextBoxControl_TextChanged;
+                WeakEventManager<TextBox, TextChangedEventArgs>.RemoveHandler(textBoxControl, nameof(TextBox.TextChanged), TextBoxControl_TextChanged);
+                WeakEventManager<TextBox, TextChangedEventArgs>.AddHandler(textBoxControl, nameof(TextBox.TextChanged), TextBoxControl_TextChanged);
 
                 // If the adorner exists, invalidate it to draw the current text
                 if (GetOrCreateAdorner(textBoxControl, out PlaceholderAdorner adorner))
@@ -83,7 +83,7 @@ namespace FlatFileList.Helpers
         {
             if (sender is TextBox textBoxControl)
             {
-                textBoxControl.Loaded -= TextBoxControl_Loaded;
+                WeakEventManager<FrameworkElement, RoutedEventArgs>.RemoveHandler(textBoxControl, nameof(FrameworkElement.Loaded), TextBoxControl_Loaded);
                 GetOrCreateAdorner(textBoxControl, out _);
             }
         }
