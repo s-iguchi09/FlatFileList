@@ -8,6 +8,7 @@ namespace FlatFileList
     /// <summary>バージョン情報ダイアログのViewModel。</summary>
     public class AboutWindowViewModel : IDisposable
     {
+        /// <summary>保持しているリアクティブリソースを破棄する。</summary>
         public void Dispose() => SelectedLicense.Dispose();
 
         /// <summary>ダイアログ全体の表示倍率(メインウィンドウに合わせる)。</summary>
@@ -22,6 +23,10 @@ namespace FlatFileList
         /// <summary>一覧で選択中のエントリ。</summary>
         public ReactivePropertySlim<LicenseInfo?> SelectedLicense { get; }
 
+        /// <summary>
+        /// バージョン文字列とライセンス一覧を構築する。
+        /// </summary>
+        /// <param name="windowScale">ダイアログ全体の表示倍率(メインウィンドウに合わせる)。</param>
         public AboutWindowViewModel(double windowScale)
         {
             WindowScale = windowScale;

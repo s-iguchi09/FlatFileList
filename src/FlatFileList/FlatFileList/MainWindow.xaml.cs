@@ -16,12 +16,20 @@ namespace FlatFileList;
 /// </summary>
 public partial class MainWindow : Window
 {
+    /// <summary>
+    /// メインウィンドウを初期化し、<see cref="MainWindowViewModel"/> を DataContext に設定する。
+    /// </summary>
     public MainWindow()
     {
         InitializeComponent();
         DataContext = new MainWindowViewModel();
     }
 
+    /// <summary>
+    /// バージョン情報ボタンのクリックハンドラー。表示倍率をメインウィンドウに合わせてバージョン情報ダイアログを開く。
+    /// </summary>
+    /// <param name="sender">イベントの発生元。</param>
+    /// <param name="e">ルーティングイベントの引数。</param>
     private void AboutButton_Click(object sender, RoutedEventArgs e)
     {
         // バージョン情報ダイアログを表示(表示倍率をメインウィンドウに合わせる)

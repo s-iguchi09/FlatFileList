@@ -15,6 +15,9 @@ namespace FlatFileList.Utilities.Shell32
         private readonly global::Shell32.Shell? _shell;
         private readonly Dictionary<string, global::Shell32.Folder?> _folders = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Shell.Application の COM インスタンスを生成する。生成できない環境では読み出しは常に空文字を返す。
+        /// </summary>
         public ShellPropertyReader()
         {
             var shellAppType = Type.GetTypeFromProgID("Shell.Application");
@@ -27,6 +30,13 @@ namespace FlatFileList.Utilities.Shell32
             _shell = Activator.CreateInstance(shellAppType) as global::Shell32.Shell;
         }
 
+        /// <summary>
+        /// 指定ファイルの拡張プロパティ値を、プロパティのインデックス指定で取得する。
+        /// フォルダーオブジェクトはインスタンス内でキャッシュして再利用する。
+        /// </summary>
+        /// <param name="file">対象ファイルの絶対パス。</param>
+        /// <param name="propertyIndex">取得する拡張プロパティのインデックス(例: 154 は前回保存日時)。</param>
+        /// <returns>プロパティ値の文字列。取得できない場合は空文字。</returns>
         public string GetValue(string file, int propertyIndex)
         {
             if (_shell is null)
@@ -79,6 +89,9 @@ namespace FlatFileList.Utilities.Shell32
             }
         }
 
+        /// <summary>
+        /// キャッシュしているフォルダーと Shell の COM オブジェクトをすべて解放する。
+        /// </summary>
         public void Dispose()
         {
             foreach (var folder in _folders.Values.Where(f => f is not null))

@@ -20,12 +20,19 @@ using System.Windows.Shell;
 
 namespace FlatFileList
 {
+    /// <summary>
+    /// メインウィンドウの ViewModel。フォルダー配下のファイル再帰検索、検索後の絞り込みフィルター、
+    /// 進捗表示、ファイル/フォルダーのクリップボードコピー・オープン、ユーザー設定の読み書きなど、
+    /// アプリケーションの中心的な状態と操作を提供する。
+    /// </summary>
     public class MainWindowViewModel : INotifyPropertyChanged, IWindowClosing, IDisposable
     {
 #pragma warning disable CS0067
+        /// <summary>プロパティ値の変更を通知するイベント。</summary>
         public event PropertyChangedEventHandler? PropertyChanged;
 #pragma warning restore CS0067
         private CompositeDisposable _disposable = new();
+        /// <summary>保持しているリアクティブリソースをまとめて破棄する。</summary>
         public void Dispose() => _disposable.Dispose();
 
         private const string _TITLE = "FlatFileList";
@@ -167,6 +174,10 @@ namespace FlatFileList
         public ReadOnlyReactivePropertySlim<double> WindowScale { get; }
         #endregion
 
+        /// <summary>
+        /// 各リアクティブプロパティ・コマンドを構築し、検索やフィルター、進捗表示、ユーザー設定の
+        /// 読み込み・保存に関する購読を配線する。
+        /// </summary>
         public MainWindowViewModel()
         {
             using var statusTextRefresh = Disposable.Create(() => StatusText.Value = string.Empty);
@@ -589,11 +600,21 @@ namespace FlatFileList
             #endregion
         }
 
+        /// <summary>
+        /// 非ジェネリックのリストを <see cref="FileProperty"/> の列へ安全に変換する。<see langword="null"/> の場合は空の列を返す。
+        /// </summary>
+        /// <param name="list">変換元のリスト。</param>
+        /// <returns><see cref="FileProperty"/> の列。</returns>
         private static IEnumerable<FileProperty> IListSafeCastToFileProperties(IList list)
         {
             return list?.SafeCast<FileProperty>() ?? Enumerable.Empty<FileProperty>();
         }
 
+        /// <summary>
+        /// 指定ファイルを、拡張子に対応するカスタム起動設定(あれば)に従って開く。ファイルが存在しない場合はエラー扱いにする。
+        /// </summary>
+        /// <param name="path">開くファイルの絶対パス。</param>
+        /// <param name="showMessage">結果やエラーをステータス・メッセージボックスに表示するかどうか。</param>
         private void OpenFileInternal(string path, bool showMessage)
         {
             if (!File.Exists(path))
@@ -618,6 +639,11 @@ namespace FlatFileList
             Process.Start(processStartInfo);
         }
 
+        /// <summary>
+        /// 選択されたファイル群から取り出した文字列を改行区切りでクリップボードにコピーする。コピーに失敗した場合はメッセージを表示する。
+        /// </summary>
+        /// <param name="fs">対象のファイル(<see cref="FileProperty"/>)を含むリスト。</param>
+        /// <param name="getStringFunc">各ファイルからコピーする文字列を取り出す関数(ファイル名・相対/絶対パスなど)。</param>
         private static void CopyToClipboard(IList fs, Func<IEnumerable<FileProperty>, IEnumerable<string>> getStringFunc)
         {
             var fileProperties = IListSafeCastToFileProperties(fs);
@@ -633,8 +659,20 @@ namespace FlatFileList
             }
         }
 
+        /// <summary>
+        /// エクスプローラー(EXPLORER.EXE)に渡す引数を生成する。ファイルの場合は選択状態で開く <c>/select</c>、フォルダーの場合はそのパスを返す。
+        /// </summary>
+        /// <param name="p">対象のファイルまたはフォルダーのパス。</param>
+        /// <returns>エクスプローラー用の引数。対象が存在しない場合は空文字。</returns>
         private static string CreateExploereArgument(string p) => File.Exists(p) ? $"/select,{p}" : Directory.Exists(p) ? p : string.Empty;
 
+        /// <summary>
+        /// ファイルの拡張子に対応するカスタム起動設定を考慮して、<see cref="ProcessStartInfo"/> を生成する。
+        /// 引数に <c>%0</c> が含まれる場合はファイルパスで置換し、含まれない場合は末尾に付与する。
+        /// </summary>
+        /// <param name="filePath">開くファイルの絶対パス。</param>
+        /// <param name="customApplicationProcesses">拡張子ごとのカスタム起動設定の一覧。</param>
+        /// <returns>プロセス起動情報。</returns>
         private static ProcessStartInfo CreateProcessStartInfo(string filePath, IEnumerable<CustomApplicationProcess> customApplicationProcesses)
         {
             var extensionText = Path.GetExtension(filePath);
@@ -654,8 +692,20 @@ namespace FlatFileList
             return new(customParam.Application.Value.ToWrappedStringInDoubleQuotes(), customParam.Args.Value.Replace(@"%0", filePath.ToWrappedStringInDoubleQuotes()));
         }
 
+        /// <summary>
+        /// <see cref="ProcessStartInfo"/> を「実行ファイル 引数」形式のコマンドライン文字列に変換する(ステータス表示用)。
+        /// </summary>
+        /// <param name="info">対象のプロセス起動情報。</param>
+        /// <returns>コマンドライン文字列。</returns>
         private static string ConvertToCommandlineText(ProcessStartInfo info) => string.Join(" ", info.FileName, info.Arguments);
 
+        /// <summary>
+        /// ディレクトリを検索対象に含めるかどうかを判定する述語を生成する。ドット始まり・隠し・システムの各条件で除外する。
+        /// </summary>
+        /// <param name="isExcludeDotStartDirectory">ドットで始まるディレクトリを除外するかどうか。</param>
+        /// <param name="isExcludeHiddenDirectory">隠しディレクトリを除外するかどうか。</param>
+        /// <param name="isExcludeSystemDirectory">システムディレクトリを除外するかどうか。</param>
+        /// <returns>対象に含める場合に <see langword="true"/> を返す述語。</returns>
         private static Func<string, bool> CreateValidatorForDirectory(bool isExcludeDotStartDirectory, bool isExcludeHiddenDirectory, bool isExcludeSystemDirectory)
         {
             var isDotStartFunc = CreateValidateDotStartFunc(isExcludeDotStartDirectory);
@@ -671,6 +721,14 @@ namespace FlatFileList
             };
         }
 
+        /// <summary>
+        /// ファイルを検索対象に含めるかどうかを判定する述語を生成する。ドット始まり・隠し・システム・除外拡張子の各条件で除外する。
+        /// </summary>
+        /// <param name="isExcludeDotStartFile">ドットで始まるファイルを除外するかどうか。</param>
+        /// <param name="isExcludeHiddenFile">隠しファイルを除外するかどうか。</param>
+        /// <param name="isExcludeSystemFile">システムファイルを除外するかどうか。</param>
+        /// <param name="extensionTexts">除外する拡張子(先頭にドットを含む)の一覧。</param>
+        /// <returns>対象に含める場合に <see langword="true"/> を返す述語。</returns>
         private static Func<string, bool> CreateValidatorForFile(bool isExcludeDotStartFile, bool isExcludeHiddenFile, bool isExcludeSystemFile, IEnumerable<string> extensionTexts)
         {
             var isDotStartFunc = CreateValidateDotStartFunc(isExcludeDotStartFile);
@@ -687,16 +745,33 @@ namespace FlatFileList
             };
         }
 
+        /// <summary>
+        /// ファイル名・ディレクトリ名がドット始まりかどうかを判定する述語を生成する。判定不要時は常に <see langword="false"/> を返す。
+        /// </summary>
+        /// <param name="needsValidate">ドット始まりの判定を行うかどうか。</param>
+        /// <returns>ドットで始まる場合に <see langword="true"/> を返す述語。</returns>
         public static Func<string, bool> CreateValidateDotStartFunc(bool needsValidate)
         {
             return needsValidate ? fileName => fileName.StartsWith(".") : _ => false;
         }
 
+        /// <summary>
+        /// 指定した <see cref="FileAttributes"/> のいずれかを持つかどうかを判定する述語を生成する。判定不要時は常に <see langword="false"/> を返す。
+        /// </summary>
+        /// <param name="needsValidate">属性の判定を行うかどうか。</param>
+        /// <param name="fileAttributes">判定対象の属性(隠し・システムなど)。</param>
+        /// <returns>指定属性を含む場合に <see langword="true"/> を返す述語。</returns>
         public static Func<FileAttributes, bool> CreateValidateFileAttributesFunc(bool needsValidate, FileAttributes fileAttributes)
         {
             return needsValidate ? attributes => (attributes & fileAttributes) > 0 : _ => false;
         }
 
+        /// <summary>
+        /// 1つの文字列がフィルター条件に一致するかを判定する述語を生成する。検索文字列が空なら常に一致とみなす。
+        /// </summary>
+        /// <param name="useRegex">正規表現として扱うかどうか。<see langword="false"/> の場合は大文字小文字を無視した部分一致。</param>
+        /// <param name="searchText">検索文字列。</param>
+        /// <returns>一致する場合に <see langword="true"/> を返す述語。</returns>
         private static Func<string,bool> CreateIsMatchSingleFunc(bool useRegex, string searchText)
         {
             if(string.IsNullOrEmpty(searchText))
@@ -713,6 +788,13 @@ namespace FlatFileList
             return target => target.Contains(searchText, StringComparison.CurrentCultureIgnoreCase);
         }
 
+        /// <summary>
+        /// 日時が基準値に対して指定した比較条件を満たすかを判定する述語を生成する。基準値が <see langword="null"/> なら常に一致とみなす。
+        /// </summary>
+        /// <param name="type">比較条件(等しい・より大きい・より小さいなど)。</param>
+        /// <param name="dateTime">比較の基準となる日時。</param>
+        /// <returns>条件を満たす場合に <see langword="true"/> を返す述語。</returns>
+        /// <exception cref="NotImplementedException"><paramref name="type"/> が未対応の値の場合。</exception>
         private static Func<DateTime?, bool> CreateIsMatchDatetimeFunc(ComparisonConditionType type, DateTime? dateTime)
         {
             if(dateTime is null)
@@ -732,12 +814,24 @@ namespace FlatFileList
             };
         }
 
+        /// <summary>
+        /// 文字列の列のいずれかがフィルター条件に一致するかを判定する述語を生成する。空の列かつ検索文字列が空の場合は一致とみなす。
+        /// </summary>
+        /// <param name="useRegex">正規表現として扱うかどうか。</param>
+        /// <param name="searchText">検索文字列。</param>
+        /// <returns>いずれかの要素が一致する場合に <see langword="true"/> を返す述語。</returns>
         private static Func<IEnumerable<string>, bool> CreateIsMatchListFunc(bool useRegex, string searchText)
         {
             var f = CreateIsMatchSingleFunc(useRegex,searchText);
             return list => !list.Any() && string.IsNullOrEmpty(searchText) ? true : list.Any(n => f(n));
         }
 
+        /// <summary>
+        /// 進捗率と不確定フラグから、タスクバーに表示する進捗状態を決定する。
+        /// </summary>
+        /// <param name="progressPer">進捗率(0.0〜1.0)。</param>
+        /// <param name="isIndeterminate">進捗が不確定かどうか。</param>
+        /// <returns>タスクバーの進捗状態。</returns>
         private static TaskbarItemProgressState GetProgressState(double progressPer, bool isIndeterminate)
         {
             if(isIndeterminate)
@@ -753,6 +847,12 @@ namespace FlatFileList
             return TaskbarItemProgressState.Normal;
         }
 
+        /// <summary>
+        /// 総数と処理済み数から進捗率(0.0〜1.0)を算出する。
+        /// </summary>
+        /// <param name="maxCount">処理対象の総数。</param>
+        /// <param name="progressCount">処理済みの数。</param>
+        /// <returns>進捗率。</returns>
         private static double CalculateProgressPer(int maxCount, int progressCount)
         {
             if (progressCount == 0)
@@ -767,6 +867,16 @@ namespace FlatFileList
             return (double)progressCount / maxCount;
         }
 
+        /// <summary>
+        /// 現在の進捗状況に応じてプログレスバーに表示する文字列を生成する。
+        /// </summary>
+        /// <param name="progressPer">進捗率(0.0〜1.0)。</param>
+        /// <param name="maxCount">処理対象の総数。</param>
+        /// <param name="successCount">処理済みの数。</param>
+        /// <param name="isIndeterminate">進捗が不確定かどうか。</param>
+        /// <param name="completed">検索が完了しているかどうか。</param>
+        /// <param name="isLastSaveTimeRefreshing">前回保存日時の更新処理中かどうか。</param>
+        /// <returns>表示用の進捗テキスト。</returns>
         private static string GetProgressText(double progressPer = 0.0, int maxCount = 0, int successCount = 0, bool isIndeterminate = false, bool completed = false, bool isLastSaveTimeRefreshing = false)
         {
             if(isLastSaveTimeRefreshing)
@@ -793,6 +903,11 @@ namespace FlatFileList
             return string.Empty;
         }
 
+        /// <summary>
+        /// 例外を握りつぶして安全にクリップボードへ文字列を設定する。
+        /// </summary>
+        /// <param name="text">クリップボードに設定する文字列。</param>
+        /// <returns>設定に成功した場合は <see langword="true"/>、失敗した場合は <see langword="false"/>。</returns>
         public static bool SafeClip(string text)
         {
             try
@@ -806,6 +921,9 @@ namespace FlatFileList
             }
         }
 
+        /// <summary>
+        /// 前回保存日時の更新など、バックグラウンドで動作中のサブスレッド処理をキャンセルし、関連リソースを破棄する。
+        /// </summary>
         private void CancelSearchSubThread()
         {
             _cancellationTokenSource?.Cancel();
@@ -816,6 +934,10 @@ namespace FlatFileList
             _cancellationTokenSource = null;
         }
 
+        /// <summary>
+        /// ウィンドウが閉じられる際に、バックグラウンド処理をキャンセルしてからクローズを許可する。
+        /// </summary>
+        /// <returns>常に <see langword="false"/>(クローズをキャンセルしない)。</returns>
         bool IWindowClosing.OnClosing()
         {
             CancelSearchSubThread();
@@ -824,8 +946,14 @@ namespace FlatFileList
         }
     }
 
+    /// <summary>
+    /// XAML デザイナー用の <see cref="MainWindowViewModel"/>。デザイン時プレビューのためのサンプルデータを投入する。
+    /// </summary>
     public class MainWindowViewModelDesignMode : MainWindowViewModel
     {
+        /// <summary>
+        /// デザイン時に表示するサンプルのファイル項目を追加し、対応するフォルダー列の表示状態を設定する。
+        /// </summary>
         public MainWindowViewModelDesignMode()
             : base()
         {
