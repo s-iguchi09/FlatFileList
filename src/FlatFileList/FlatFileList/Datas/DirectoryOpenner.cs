@@ -5,11 +5,17 @@ using System.Reactive.Linq;
 
 namespace FlatFileList.Datas
 {
+    /// <summary>
+    /// ファイル一覧の各行が持つ、ルートからの相対パス上のディレクトリ1階層分を表すデータ。
+    /// 列に表示するフォルダー名と、エクスプローラーで開く対象パスを保持する。
+    /// </summary>
     public class DirectoryOpenner : INotifyPropertyChanged, IDisposable
     {
 #pragma warning disable CS0067
+        /// <summary>プロパティ値の変更を通知するイベント。</summary>
         public event PropertyChangedEventHandler? PropertyChanged;
 #pragma warning restore CS0067
+        /// <summary>保持しているリソースを破棄する。</summary>
         public void Dispose()
         {
             //_disposables.Dispose();
@@ -26,11 +32,21 @@ namespace FlatFileList.Datas
 
         public bool IsEnabled { get; } = false;
 
+        /// <summary>
+        /// ルートパスのみを保持する空のインスタンスを生成する。
+        /// </summary>
+        /// <param name="rootPath">検索ルートのパス。</param>
         private DirectoryOpenner(string rootPath)
         {
             _rootPath = rootPath;
 
         }
+
+        /// <summary>
+        /// ルートからのディレクトリ階層リストからインスタンスを生成する。
+        /// </summary>
+        /// <param name="rootPath">検索ルートのパス。</param>
+        /// <param name="directories">ルートから対象ディレクトリまでの各階層のフォルダー名。</param>
         public DirectoryOpenner(string rootPath, IEnumerable<string> directories)
             : this(rootPath)
         {
@@ -43,6 +59,11 @@ namespace FlatFileList.Datas
             AbsolutePath = TargetPath;
         }
 
+        /// <summary>
+        /// ファイルパスから、その親ディレクトリを表すインスタンスを生成する。
+        /// </summary>
+        /// <param name="rootPath">検索ルートのパス。</param>
+        /// <param name="filePath">対象ファイルの絶対パス。</param>
         public DirectoryOpenner(string rootPath, string filePath)
             : this(rootPath)
         {
@@ -55,6 +76,10 @@ namespace FlatFileList.Datas
             AbsolutePath = Path.GetDirectoryName(filePath) ?? string.Empty;
         }
 
+        /// <summary>
+        /// 列のパディング用に、値を持たない空のインスタンスを生成する。
+        /// </summary>
+        /// <returns>空の <see cref="DirectoryOpenner"/>。</returns>
         public static DirectoryOpenner CreateEmptyOpenner() => new(string.Empty);
     }
 }

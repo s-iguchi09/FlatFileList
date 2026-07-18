@@ -6,6 +6,10 @@ using System.Windows.Controls.Primitives;
 
 namespace FlatFileList.Behaviors
 {
+    /// <summary>
+    /// ボタンのクリックでフォルダー選択ダイアログを開き、選択されたパスを <see cref="SelectedPath"/> に反映するビヘイビア。
+    /// .NET Framework では <see cref="OpenFileDialog"/> を、それ以外では <see cref="OpenFolderDialog"/> を使用する。
+    /// </summary>
     public class FolderSelectBehavior : Behavior<ButtonBase>
     {
         // ViewModelのプロパティとバインドするための依存関係プロパティ
@@ -19,6 +23,9 @@ namespace FlatFileList.Behaviors
             set => SetValue(SelectedPathProperty, value);
         }
 
+        /// <summary>
+        /// ビヘイビアがアタッチされた際に、対象ボタンのクリックイベントを購読する。
+        /// </summary>
         protected override void OnAttached()
         {
             base.OnAttached();
@@ -29,6 +36,9 @@ namespace FlatFileList.Behaviors
             }
         }
 
+        /// <summary>
+        /// ビヘイビアが取り外された際に、購読していたクリックイベントを解除する。
+        /// </summary>
         protected override void OnDetaching()
         {
             if (AssociatedObject is ButtonBase button)
@@ -38,6 +48,11 @@ namespace FlatFileList.Behaviors
             base.OnDetaching();
         }
 
+        /// <summary>
+        /// ボタンクリック時のハンドラー。フォルダー選択ダイアログを表示し、選択結果を <see cref="SelectedPath"/> に設定する。
+        /// </summary>
+        /// <param name="sender">イベントの発生元。</param>
+        /// <param name="e">ルーティングイベントの引数。</param>
         private void OnClick(object sender, RoutedEventArgs e)
         {
 #if NETFRAMEWORK

@@ -7,10 +7,18 @@ using System.Windows;
 
 namespace FlatFileList
 {
+    /// <summary>
+    /// DataContext を経由せずにデータをバインディングへ橋渡しするためのプロキシ。
+    /// <see cref="Freezable"/> を継承することで、視覚ツリー外の要素からでも <see cref="Data"/> をバインディングできる。
+    /// </summary>
     public class BindingProxy : Freezable
     {
         #region Overrides of Freezable
 
+        /// <summary>
+        /// <see cref="Freezable"/> の新しいインスタンスを生成する。
+        /// </summary>
+        /// <returns>新しい <see cref="BindingProxy"/> インスタンス。</returns>
         protected override Freezable CreateInstanceCore()
         {
             return new BindingProxy();

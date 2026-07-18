@@ -14,9 +14,19 @@ namespace FlatFileList.Helpers
         /// <summary>Fluent テーマの TextBox テンプレートに定義されたクリアボタンのパーツ名。</summary>
         private const string DeleteButtonPartName = "DeleteButton";
 
+        /// <summary>
+        /// 添付プロパティ <c>HideClearButton</c> の値を取得する。
+        /// </summary>
+        /// <param name="obj">対象の依存関係オブジェクト。</param>
+        /// <returns>クリアボタンを非表示にする場合は <see langword="true"/>。</returns>
         public static bool GetHideClearButton(DependencyObject obj) =>
             (bool)obj.GetValue(HideClearButtonProperty);
 
+        /// <summary>
+        /// 添付プロパティ <c>HideClearButton</c> の値を設定する。
+        /// </summary>
+        /// <param name="obj">対象の依存関係オブジェクト。</param>
+        /// <param name="value">クリアボタンを非表示にする場合は <see langword="true"/>。</param>
         public static void SetHideClearButton(DependencyObject obj, bool value) =>
             obj.SetValue(HideClearButtonProperty, value);
 
@@ -30,6 +40,12 @@ namespace FlatFileList.Helpers
                     propertyChangedCallback: OnHideClearButtonChanged)
                 );
 
+        /// <summary>
+        /// <c>HideClearButton</c> が変更されたときのコールバック。値が <see langword="true"/> の場合、
+        /// TextBox が読み込み済みなら即座に、未読み込みなら Loaded 後にクリアボタンを非表示にする。
+        /// </summary>
+        /// <param name="d">対象の依存関係オブジェクト。</param>
+        /// <param name="e">変更前後の値を含むイベント引数。</param>
         private static void OnHideClearButtonChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             if (d is not TextBox textBoxControl || !(bool)e.NewValue)
@@ -50,6 +66,11 @@ namespace FlatFileList.Helpers
             }
         }
 
+        /// <summary>
+        /// TextBox の Loaded イベントハンドラー。ハンドラーを解除してからクリアボタンを非表示にする。
+        /// </summary>
+        /// <param name="sender">イベントの発生元(TextBox)。</param>
+        /// <param name="e">ルーティングイベントの引数。</param>
         private static void HideClearButton_Loaded(object sender, RoutedEventArgs e)
         {
             if (sender is TextBox textBoxControl)
@@ -59,6 +80,10 @@ namespace FlatFileList.Helpers
             }
         }
 
+        /// <summary>
+        /// テンプレートを適用し、クリアボタンのパーツ(<see cref="DeleteButtonPartName"/>)を <see cref="Visibility.Collapsed"/> にする。
+        /// </summary>
+        /// <param name="textBoxControl">対象の TextBox。</param>
         private static void HideDeleteButton(TextBox textBoxControl)
         {
             textBoxControl.ApplyTemplate();

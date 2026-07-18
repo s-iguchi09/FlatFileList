@@ -11,17 +11,25 @@ using System.Text.RegularExpressions;
 
 namespace FlatFileList.Datas
 {
+    /// <summary>
+    /// ファイル一覧の1行に対応する、検索でヒットした1ファイルの情報。
+    /// ファイル名・拡張子・アイコン・更新日時・前回保存日時、およびルートからの各階層ディレクトリを保持し、
+    /// フィルター条件に応じたハイライト状態を管理する。
+    /// </summary>
     public partial class FileProperty : INotifyPropertyChanged, IDisposable
     {
         //NOTE:毎回 new すると走査1回あたり数万回コンパイルが走るため、ソース生成で静的に持つ。
+        /// <summary>ASCII 印字可能文字(0x20〜0x7F)以外にマッチする、ソース生成された正規表現。</summary>
         [GeneratedRegex(@"[^\x20-\x7F]")]
         private static partial Regex NonAsciiRegex();
 
 
 #pragma warning disable CS0067
+        /// <summary>プロパティ値の変更を通知するイベント。</summary>
         public event PropertyChangedEventHandler? PropertyChanged;
 #pragma warning restore CS0067
         private readonly CompositeDisposable _disposables = new();
+        /// <summary>保持しているリアクティブリソースを破棄する。</summary>
         public void Dispose() => _disposables.Dispose();
 
         public ReactivePropertySlim<DateTime> LastWriteTime { get; } = new();
@@ -69,6 +77,11 @@ namespace FlatFileList.Datas
 
         private readonly string _searchDirectoryPath;
 
+        /// <summary>
+        /// ファイルパスと検索ルートから、一覧表示に必要な各種プロパティを構築する。
+        /// </summary>
+        /// <param name="filePath">対象ファイルの絶対パス。</param>
+        /// <param name="searchDirectoryPath">検索の起点となったルートディレクトリのパス。相対パスや階層列の算出に使用する。</param>
         public FileProperty(string filePath, string searchDirectoryPath)
         {
             _searchDirectoryPath = searchDirectoryPath;
@@ -94,12 +107,20 @@ namespace FlatFileList.Datas
             ModifiedTimeString = ModifiedTime.Select(dt => dt?.ToString(ConstantObject.ModifiedTimeFormat) ?? string.Empty).ToReadOnlyReactivePropertySlim<string>(string.Empty).AddTo(_disposables);
         }
 
+        /// <summary>
+        /// ファイルシステムから更新日時(LastWriteTime)を取得し直して <see cref="LastWriteTime"/> を更新する。
+        /// </summary>
         public void UpdateLastWriteTime()
         {
             var dt = File.GetLastWriteTime(FilePath);
             LastWriteTime.Value = new(dt.Year,dt.Month,dt.Day,dt.Hour,dt.Minute,dt.Second,dt.Millisecond);
         }
 
+        /// <summary>
+        /// Shell 拡張プロパティから前回保存日時を取得し、<see cref="ModifiedTime"/> を更新する。
+        /// </summary>
+        /// <param name="isIgnoreGettingLastSaveTime"><see langword="true"/> の場合は取得を行わず更新をスキップする。</param>
+        /// <param name="reader">Shell プロパティの読み出しに使用するリーダー。</param>
         [STAThread]
         public void UpdateModifiedTime(bool isIgnoreGettingLastSaveTime, ShellPropertyReader reader)
         {
@@ -110,6 +131,11 @@ namespace FlatFileList.Datas
             }
         }
 
+        /// <summary>
+        /// Shell 拡張プロパティ「前回保存日時」を取得し、書式文字などの非 ASCII 文字を除去した文字列を返す。
+        /// </summary>
+        /// <param name="reader">Shell プロパティの読み出しに使用するリーダー。</param>
+        /// <returns>前回保存日時を表す文字列。</returns>
         [STAThread]
         private string GetModifiredTimeString(ShellPropertyReader reader)
         {
@@ -117,6 +143,12 @@ namespace FlatFileList.Datas
             return NonAsciiRegex().Replace(reader.GetValue(FilePath, 154), "");
         }
 
+        /// <summary>
+        /// 各階層のディレクトリ名から <see cref="DirectoryOpenner"/> の列を生成する。
+        /// 列数を <see cref="ConstantObject.MaxDirectoryColumnCount"/> に揃えるため、不足分は空のエントリでパディングする。
+        /// </summary>
+        /// <param name="directories">ルートから対象ファイルまでの各階層のフォルダー名。</param>
+        /// <returns>列表示用の <see cref="DirectoryOpenner"/> の列。</returns>
         private IEnumerable<DirectoryOpenner> GetDirectoryOpenners(IEnumerable<string> directories)
         {
             if (directories.Any())
@@ -135,6 +167,14 @@ namespace FlatFileList.Datas
             }
         }
 
+        /// <summary>
+        /// 各フィルター条件をすべて満たすかどうかを判定し、<see cref="IsHighlighted"/> を更新する。
+        /// </summary>
+        /// <param name="isMatchFileName">ファイル名に対する一致判定。</param>
+        /// <param name="isMatchExtensionText">拡張子に対する一致判定。</param>
+        /// <param name="isMatchDirectoryName">ディレクトリ名(相対パス)に対する一致判定。</param>
+        /// <param name="isLastWriteTimeMatch">更新日時に対する一致判定。</param>
+        /// <param name="isModifiedTimeMatch">前回保存日時に対する一致判定。</param>
         public void UpdateIsHighlighted(Func<string,bool> isMatchFileName, Func<string, bool> isMatchExtensionText, Func<string, bool> isMatchDirectoryName, Func<DateTime?, bool> isLastWriteTimeMatch, Func<DateTime?, bool> isModifiedTimeMatch)
         {
             IsHighlighted.Value = isMatchFileName(FileName)
@@ -144,6 +184,11 @@ namespace FlatFileList.Datas
                                   && isModifiedTimeMatch(ModifiedTime.Value);
         }
 
+        /// <summary>
+        /// 相対パスを分解し、ルート直下から末尾の親ディレクトリまでの各階層のフォルダー名を順に返す。
+        /// </summary>
+        /// <param name="relativePath">ルートからの相対ファイルパス。</param>
+        /// <returns>各階層のフォルダー名。階層がない場合は空の列。</returns>
         private static IEnumerable<string> GetDirectories(string relativePath)
         {
             if (string.IsNullOrEmpty(relativePath))

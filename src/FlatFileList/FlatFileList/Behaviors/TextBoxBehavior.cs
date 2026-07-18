@@ -4,6 +4,9 @@ using System.Windows.Input;
 
 namespace FlatFileList.Behaviors
 {
+    /// <summary>
+    /// アタッチした <see cref="TextBox"/> に対するクリア・フォーカス・全選択などの操作を提供するビヘイビア。
+    /// </summary>
     public class TextBoxBehavior : Behavior<TextBox>
     {
         /// <summary>
