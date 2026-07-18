@@ -1830,6 +1830,15 @@
             Grid.Column="0"
             Grid.ColumnSpan="3"
             Padding="0">
+            <!--  DockPanel は先に宣言した Dock="Right" が最も右に配置されるため、ComboBox より前に置く。  -->
+            <StatusBarItem DockPanel.Dock="Right">
+                <Button
+                    Click="AboutButton_Click"
+                    Style="{StaticResource IconButtonStyle}"
+                    ToolTip="バージョン情報">
+                    <materialDesign:PackIcon Kind="InformationOutline" Style="{StaticResource PackIconButtonStyle}" />
+                </Button>
+            </StatusBarItem>
             <StatusBarItem DockPanel.Dock="Right">
                 <ComboBox
                     Width="80"

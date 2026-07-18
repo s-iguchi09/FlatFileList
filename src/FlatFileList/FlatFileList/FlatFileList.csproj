@@ -35,6 +35,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--  バージョン情報ダイアログに表示するライセンス全文。追加時はここに .txt を置くだけでよい。  -->
+    <EmbeddedResource Include="Resources\Licenses\*.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="MaterialDesignThemes" Version="5.2.1" />
     <PackageReference Include="ReactiveProperty.WPF" Version="9.7.0" />
   </ItemGroup>

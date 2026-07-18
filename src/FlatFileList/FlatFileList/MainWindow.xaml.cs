@@ -21,4 +21,12 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = new MainWindowViewModel();
     }
+
+    private void AboutButton_Click(object sender, RoutedEventArgs e)
+    {
+        // バージョン情報ダイアログを表示(表示倍率をメインウィンドウに合わせる)
+        var scale = (DataContext as MainWindowViewModel)?.WindowScale.Value ?? 1.0;
+        var window = new AboutWindow(scale) { Owner = this };
+        window.ShowDialog();
+    }
 }
