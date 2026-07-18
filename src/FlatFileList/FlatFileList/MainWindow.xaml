@@ -399,6 +399,7 @@
                                 Grid.ColumnSpan="4"
                                 Padding="{StaticResource TwoButtonPadding}"
                                 HorizontalAlignment="Stretch"
+                                helper:TextBoxHelper.HideClearButton="True"
                                 x:FieldModifier="private"
                                 IsEnabled="{Binding ExistsFileLists.Value, Converter={StaticResource InvertedBoolConverter}}"
                                 Text="{Binding DirectoryPath.Value, UpdateSourceTrigger=PropertyChanged}">
@@ -544,6 +545,7 @@
                                             Padding="{StaticResource OneButtonPadding}"
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
+                                            helper:TextBoxHelper.HideClearButton="True"
                                             Text="{Binding ExcludeExtensionText.Value, UpdateSourceTrigger=PropertyChanged}">
                                             <i:Interaction.Behaviors>
                                                 <behaviors:TextBoxBehavior x:Name="ExcludeExtensionTextBoxBehavior" />
@@ -645,6 +647,7 @@
                                 Grid.ColumnSpan="4"
                                 Padding="{StaticResource TwoButtonPadding}"
                                 HorizontalAlignment="Stretch"
+                                helper:TextBoxHelper.HideClearButton="True"
                                 x:FieldModifier="private"
                                 Text="{Binding FilteringFileNameText.Value, UpdateSourceTrigger=PropertyChanged, Delay=300}">
                                 <i:Interaction.Behaviors>
@@ -687,6 +690,7 @@
                                 Grid.ColumnSpan="4"
                                 Padding="{StaticResource TwoButtonPadding}"
                                 HorizontalAlignment="Stretch"
+                                helper:TextBoxHelper.HideClearButton="True"
                                 x:FieldModifier="private"
                                 Text="{Binding FilteringExtensionText.Value, UpdateSourceTrigger=PropertyChanged, Delay=300}">
                                 <i:Interaction.Behaviors>
@@ -729,6 +733,7 @@
                                 Grid.ColumnSpan="4"
                                 Padding="{StaticResource TwoButtonPadding}"
                                 HorizontalAlignment="Stretch"
+                                helper:TextBoxHelper.HideClearButton="True"
                                 x:FieldModifier="private"
                                 Text="{Binding FilteringDirectoryNameText.Value, UpdateSourceTrigger=PropertyChanged, Delay=300}">
                                 <i:Interaction.Behaviors>
@@ -772,6 +777,7 @@
                                 Padding="{StaticResource TwoButtonPadding}"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
+                                helper:TextBoxHelper.HideClearButton="True"
                                 helper:TextBoxHelper.Padding="2,0,0,0"
                                 helper:TextBoxHelper.Placeholder="{x:Static local:ConstantObject.LastWriteTimeFormat}"
                                 Text="{Binding FilteringLastWriteTime.Value, Converter={StaticResource DatetimeConverter}, ConverterParameter={x:Static local:ConstantObject.LastWriteTimeFormat}, TargetNullValue=''}">
@@ -920,6 +926,7 @@
                                 Padding="{StaticResource TwoButtonPadding}"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
+                                helper:TextBoxHelper.HideClearButton="True"
                                 helper:TextBoxHelper.Padding="2,0,0,0"
                                 helper:TextBoxHelper.Placeholder="{x:Static local:ConstantObject.ModifiedTimeFormat}"
                                 Text="{Binding FilteringModifiedTime.Value, Converter={StaticResource DatetimeConverter}, ConverterParameter={x:Static local:ConstantObject.ModifiedTimeFormat}, TargetNullValue=''}">
