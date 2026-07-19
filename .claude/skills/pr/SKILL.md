@@ -69,6 +69,8 @@ description: 現在の変更をPR化し、CodeRabbitのレビュー指摘がゼ�
     変更の由来を確認する。既に stage 済みの無関係な変更・秘密情報が残っていないかも必ず見る。
   - **今回の PR の対象のみを明示的に stage** する（`git add <パス>`。同一ファイル内に無関係な
     hunk が混ざるなら `git add -p` で hunk 単位に選ぶ）。`git add -A` / `git commit -a` は使わない。
+  - **対象外が既に index に stage されていたら `git restore --staged -- <パス>` で index から外す**
+    （`git add` は既存の staged 差分を解除しないため、放置すると commit・push されてしまう）。
   - 対象外の変更・身に覚えのない差分・秘密情報が混在して分離できない場合は、**push せず停止して
     ユーザーへ報告**する。
   - 日本語メッセージで論理単位ごとに commit。メッセージ末尾に付与:
@@ -115,8 +117,8 @@ push だけでは再レビューされない。必ず PR に明示コメント�
 投稿方法:
 
 - **A（Webhook）**: `mcp__github__add_issue_comment`（または同等の PR コメントツール）で上記コマンドを投稿。
-- **B（ポーリング）**: レビュー依頼の **直前に基準時刻を記録**（`since=$(date -u +%Y-%m-%dT%H:%M:%SZ)`）
-  してから投稿する。
+- **B（ポーリング）**: レビュー依頼の **直前に基準時刻を記録**する。同一秒のレビュー取りこぼしを
+  防ぐため **1 秒前にずらす**（`since=$(date -u -d '-1 second' +%Y-%m-%dT%H:%M:%SZ)`）。そのうえで投稿する。
 
   ```powershell
   # 初回ラウンド
@@ -149,14 +151,16 @@ CodeRabbit のレビューは数分かかる。完了を待って自動で次へ
   > 取りこぼす恐れがあるため使わない。素直な全ページ集計にする。
 
   ```bash
-  n="<PR番号>"; since="<ステップ4Bで記録した時刻>"; repo="s-iguchi09/FlatFileList"
+  n="<PR番号>"; since="<ステップ4Bで記録した時刻(1秒マージン)>"; repo="s-iguchi09/FlatFileList"
   deadline=$(( $(date +%s) + 900 ))                       # 15分で打ち切り
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    # --paginate で全ページ集計（既定30件で切れて31件目以降を取りこぼさない）。行数=件数
-    cnt=$(gh api --paginate "repos/$repo/pulls/$n/reviews?per_page=100" \
-      --jq ".[]|select(.user.type==\"Bot\" and (.user.login|startswith(\"coderabbitai\")) and .submitted_at>\"$since\")|.id" \
-      2>/dev/null | wc -l | tr -d ' ')
-    [ "${cnt:-0}" -gt 0 ] && { echo "review-ready:$cnt"; break; }
+    # timeout でハング対策（gh api 自体にリクエストtimeoutは無い）。--paginate で全ページ集計
+    ids=$(timeout 50 gh api --paginate "repos/$repo/pulls/$n/reviews?per_page=100" \
+      --jq ".[]|select(.user.type==\"Bot\" and (.user.login|startswith(\"coderabbitai\")) and .submitted_at>\"$since\")|.id")
+    rc=$?
+    if [ "$rc" -ne 0 ]; then echo "API_ERROR rc=$rc"; exit 1; fi   # 失敗を件数0扱いにしない
+    cnt=$(printf '%s\n' "$ids" | grep -c .)                        # 行数=件数
+    [ "$cnt" -gt 0 ] && { echo "review-ready:$cnt"; break; }
     sleep 60
   done
   ```
