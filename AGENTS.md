@@ -4,6 +4,7 @@ WPF アプリ。AI エージェント（Claude / その他モデル）が開発�
 **常に守ること**。PR ワークフロー（`.claude/skills/pr`）でも同じ規約を適用する。
 
 ## プロジェクト概要
+
 - **UI/FW**: WPF / .NET 10（`net10.0-windows`）/ C# 13 / Nullable enable
 - **アーキテクチャ**: MVVM（**ReactiveProperty** ベース。CommunityToolkit.Mvvm / Prism ではない）
 - **主要ライブラリ**: MaterialDesignThemes, ReactiveProperty.WPF, Microsoft.Xaml.Behaviors, COM: Shell32
@@ -25,6 +26,7 @@ WPF アプリ。AI エージェント（Claude / その他モデル）が開発�
 3. **ビルドは VS MSBuild を使う（`dotnet build` は使わない）**
    `dotnet build` は COMReference（Shell32）で **失敗する**。必ず Visual Studio の MSBuild で
    ビルド・検証する。
+
    ```powershell
    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
    $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
@@ -35,6 +37,7 @@ WPF アプリ。AI エージェント（Claude / その他モデル）が開発�
    コード内コメント・コミットメッセージ・PR タイトル/本文・ユーザーへの報告は日本語で書く。
 
 ## その他
+
 - コードは周囲の既存コードのスタイル（命名・`#region` の日本語ラベル・コメント密度）に合わせる。
 - CodeRabbit のレビュー方針は `.coderabbit.yaml`（日本語・徹底レビュー・上記1/2をチェック）で定義。
 - PR 作成〜レビュー対応〜指摘ゼロまでの自動ループは `/pr` スキル（`.claude/skills/pr/SKILL.md`）を使う。
