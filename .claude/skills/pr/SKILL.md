@@ -140,27 +140,37 @@ CodeRabbit のレビューは数分かかる。完了を待って自動で次へ
   `mcp__github__pull_request_read`（`get_reviews` / `get_review_comments` / `get_status`）で
   状況を確認して続行する（ユーザーには聞かない）。
 - **B（ポーリング）**: **Git Bash（Bash ツール）でバックグラウンドの監視ループ**を回す
-  （前景 `sleep` は使わず、`run_in_background`＝デタッチ実行）。到着判定は **構造化フィールドを主**に
-  行う（`.user.type=="Bot"` かつ `login` が `coderabbitai` で始まり、`submitted_at` が `$since` より
-  後の**レビュー提出**があるか）。bot 名や「Actionable comments posted:」本文への依存は補助に留める。
-  取得は **`gh api --paginate`（全ページ）＋ gh 内蔵 `--jq`** で行う（外部 `jq` 不要。認証は gh が
-  処理するのでトークンは argv に出ない）。件数は行数で数える。レート消費は **60 秒間隔・reviews
-  エンドポイント1本**で十分小さい（数十 req/時。上限 5,000/時に対し些少）。
+  （前景 `sleep` は使わず、`run_in_background`＝デタッチ実行）。判定は **構造化フィールドを主**に行い、
+  **レビュー完了を2系統で検知する**（どちらかが `$since` 後に現れたら1ラウンド完了）:
+  - **指摘あり**: `coderabbitai[bot]` の**新規レビュー提出**（`/pulls/<n>/reviews`。
+    `.user.type=="Bot"` かつ `login` が `coderabbitai` で始まり `submitted_at>$since`）。
+  - **指摘ゼロ**: CodeRabbit は review を出さず「**Action performed / Review finished**」の
+    **issue コメント**（`/issues/<n>/comments`）だけを返す。**これもクリーン完了として検知する**。
+    ※ これが無いと、指摘ゼロの回はタイムアウトするまで判定できない（実運用で判明した検知漏れ）。
+  bot 名や「Actionable comments posted:」本文への依存は補助に留める。取得は **`gh api --paginate`
+  （全ページ）＋ gh 内蔵 `--jq`** で行う（外部 `jq` 不要。認証は gh が処理するのでトークンは argv に
+  出ない）。件数は行数で数える。レート消費は 60 秒間隔で十分小さい。
 
   > 一覧の条件付きリクエスト（ETag）は先頭ページの ETag しか反映せず、100 件目以降の新レビューを
   > 取りこぼす恐れがあるため使わない。素直な全ページ集計にする。
 
   ```bash
   n="<PR番号>"; since="<ステップ4Bで記録した時刻(1秒マージン)>"; repo="s-iguchi09/FlatFileList"
+  filt='.user.type=="Bot" and (.user.login|startswith("coderabbitai"))'
   deadline=$(( $(date +%s) + 900 ))                       # 15分で打ち切り
   while [ "$(date +%s)" -lt "$deadline" ]; do
     # timeout でハング対策（gh api 自体にリクエストtimeoutは無い）。--paginate で全ページ集計
-    ids=$(timeout 50 gh api --paginate "repos/$repo/pulls/$n/reviews?per_page=100" \
-      --jq ".[]|select(.user.type==\"Bot\" and (.user.login|startswith(\"coderabbitai\")) and .submitted_at>\"$since\")|.id")
-    rc=$?
-    if [ "$rc" -ne 0 ]; then echo "API_ERROR rc=$rc"; exit 1; fi   # 失敗を件数0扱いにしない
-    cnt=$(printf '%s\n' "$ids" | grep -c .)                        # 行数=件数
-    [ "$cnt" -gt 0 ] && { echo "review-ready:$cnt"; break; }
+    # (1) 指摘あり: 新規レビュー提出
+    rev=$(timeout 50 gh api --paginate "repos/$repo/pulls/$n/reviews?per_page=100" \
+      --jq ".[]|select($filt and .submitted_at>\"$since\")|.id"); rc=$?
+    [ "$rc" -ne 0 ] && { echo "API_ERROR rev rc=$rc"; exit 1; }   # 失敗を0扱いにしない
+    # (2) 指摘ゼロ: review 提出は無く「Review finished」完了コメントだけが返る
+    ack=$(timeout 50 gh api --paginate "repos/$repo/issues/$n/comments?per_page=100" \
+      --jq ".[]|select($filt and .created_at>\"$since\" and (.body|test(\"Review finished|Actionable comments posted\")))|.id"); rc=$?
+    [ "$rc" -ne 0 ] && { echo "API_ERROR ack rc=$rc"; exit 1; }
+    if [ -n "$rev$ack" ]; then                             # どちらかあれば1ラウンド完了
+      echo "review-complete rev=$(printf '%s' "$rev"|grep -c .) ack=$(printf '%s' "$ack"|grep -c .)"; break
+    fi
     sleep 60
   done
   ```
@@ -172,15 +182,18 @@ CodeRabbit のレビューは数分かかる。完了を待って自動で次へ
 - B では **必ず `--paginate`（`?per_page=100`）で全ページ取得**する（既定 30 件で切れて
   31 件目以降を取りこぼさないため）。
 
-**完了判定 & 件数**: CodeRabbit サマリ本文の **`Actionable comments posted: N`** を読む。
+**完了判定 & 件数**: 完了を検知したら、`$since` 後の新規 actionable インラインコメント
+（`/pulls/<n>/comments`）を数える。レビュー提出があればサマリ本文の
+**`Actionable comments posted: N`** も併せて確認する。
 
-- `N = 0` かつ新規 actionable インラインコメント無し → **クリーン（ループ終了）**
-- `N > 0` → 各インラインコメント（ファイル・行・指摘内容・提案）を収集して次へ
+- **新規レビュー提出が無く「Review finished」ack のみ**、または `N = 0` かつ新規インライン
+  コメント無し → **クリーン（ループ終了）**
+- `N > 0`（新規インラインコメントあり）→ 各指摘（ファイル・行・内容・提案）を収集して次へ
 - CI グリーンや walkthrough / 「Pre-merge checks passed」だけを根拠にクリーンと判断しない
   （中間シグナル。後から actionable な指摘が追加され得る）。
 
-**タイムアウト / フォールバック**: 15 分待っても新レビューが付かない場合は、最新レビュー本文を
-直接読んで状況を判断する。それでも判断できない時のみユーザーへ状況を報告する。
+**タイムアウト / フォールバック**: 15 分待ってどちらのシグナルも来ない場合は、最新レビュー本文と
+`@coderabbitai` の直近コメントを直接読んで状況を判断する。それでも判断できない時のみユーザーへ報告する。
 
 ### 6. 一括修正（1ラウンド）
 
