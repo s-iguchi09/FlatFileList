@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+# CodeRabbit レビュー設定（FlatFileList）
+# 参考: https://docs.coderabbit.ai/reference/configuration
+
+# レビュー指摘を日本語で行う
+language: ja
+tone_instructions: >
+  日本語で、簡潔かつ具体的に指摘してください。指摘には修正案を添えてください。
+reviews:
+  # より踏み込んだレビュー。低確信の指摘も含めて幅広く拾う
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  poem: false
+  collapse_walkthrough: false
+  path_instructions:
+    - path: "**/*.cs"
+      instructions: >
+        すべてのクラス・メソッド・プロパティ・イベントに日本語の XML ドキュメント
+        コメント（/// <summary>）が付いているか確認し、欠けていれば指摘すること。
+        private メンバーも対象とする。
+    - path: "**/*.xaml.cs"
+      instructions: >
+        コードビハインドにビジネスロジックや UI ロジックを書かないこと（MVVM 遵守）。
+        ロジックは ViewModel（ReactiveProperty）へ寄せる。イベントハンドラ内に処理を
+        記述している箇所は指摘し、ReactiveCommand / バインディング / Behavior での
+        実装を提案すること。
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+    # インクリメンタルレビューを無効化し、指摘を 1 回のレビューにまとめる
+    # (push のたびの自動再レビューはされなくなるため、再レビューは明示的に依頼する)
+    auto_incremental_review: false
+chat:
+  auto_reply: true
