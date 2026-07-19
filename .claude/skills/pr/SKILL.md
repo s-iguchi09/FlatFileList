@@ -64,8 +64,12 @@ description: 現在の変更をPR化し、CodeRabbitのレビュー指摘がゼ�
   git switch -c feature/<topic>
   ```
 
-- 未コミットの変更があれば、日本語メッセージで論理単位ごとに commit。
-  - コミットメッセージ末尾に付与:
+- 未コミットの変更があれば commit する。ただし **無条件に全部 stage しない**:
+  - まず `git status` / `git diff` で変更の由来を確認し、**今回の PR の対象パス・hunk のみを
+    明示的に stage** する（`git add <パス>`。`git add -A` や `git commit -a` は使わない）。
+  - 対象外の変更や身に覚えのない差分・秘密情報が混在して分離できない場合は、**push せず停止して
+    ユーザーへ報告**する（無関係な作業や機密を誤って push しないため）。
+  - 日本語メッセージで論理単位ごとに commit。メッセージ末尾に付与:
     `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
 - リモートへ push: `git push -u origin <branch>`
 - **PR に出せる変更が無い場合**（`main` と差分ゼロ）はその旨を報告して停止。
@@ -150,23 +154,28 @@ CodeRabbit のレビューは数分かかる。完了を待って自動で次へ
   url="https://api.github.com/repos/$repo/pulls/$n/reviews"
   etag=""; deadline=$(( $(date +%s) + 900 ))              # 15分で打ち切り
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    code=$(curl -sS -K "$tmp/curl.cfg" ${etag:+-H "If-None-Match: $etag"} \
+    # --connect-timeout/--max-time でハング時も deadline を超えないようにする
+    code=$(curl -sS --connect-timeout 10 --max-time 30 -K "$tmp/curl.cfg" \
+      ${etag:+-H "If-None-Match: $etag"} \
       -o "$tmp/rev.json" -D "$tmp/hdr.txt" -w '%{http_code}' "$url" || echo 000)
     if [ "$code" = "200" ]; then                          # 変化あり（304/000は非課金）
       etag=$(awk 'tolower($1)=="etag:"{print $2}' "$tmp/hdr.txt" | tr -d "\r")
-      cnt=$(gh api "repos/$repo/pulls/$n/reviews" \
-        --jq "[.[]|select(.user.type==\"Bot\" and (.user.login|startswith(\"coderabbitai\")) and .submitted_at>\"$since\")]|length" \
-        2>/dev/null || echo 0)
+      # --paginate で全ページ集計（既定30件で切れて取りこぼすのを防ぐ）。行数=件数
+      cnt=$(gh api --paginate "repos/$repo/pulls/$n/reviews?per_page=100" \
+        --jq ".[]|select(.user.type==\"Bot\" and (.user.login|startswith(\"coderabbitai\")) and .submitted_at>\"$since\")|.id" \
+        2>/dev/null | wc -l | tr -d ' ' || echo 0)
       [ "${cnt:-0}" -gt 0 ] && { echo "review-ready:$cnt"; break; }
     fi
     sleep 60
   done
   ```
 
-**指摘の収集**（モード共通。A は MCP、B は `gh api --jq`）:
+**指摘の収集**（モード共通。A は MCP、B は `gh api --paginate --jq`）:
 
 - レビュー本文: `.../pulls/<n>/reviews`（A: `mcp__github__pull_request_read` `get_reviews`）
 - インラインコメント: `.../pulls/<n>/comments`（A: 同 `get_review_comments`）
+- B では **必ず `--paginate`（`?per_page=100`）で全ページ取得**する（既定 30 件で切れて
+  31 件目以降を取りこぼさないため）。
 
 **完了判定 & 件数**: CodeRabbit サマリ本文の **`Actionable comments posted: N`** を読む。
 
