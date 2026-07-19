@@ -65,10 +65,12 @@ description: 現在の変更をPR化し、CodeRabbitのレビュー指摘がゼ�
   ```
 
 - 未コミットの変更があれば commit する。ただし **無条件に全部 stage しない**:
-  - まず `git status` / `git diff` で変更の由来を確認し、**今回の PR の対象パス・hunk のみを
-    明示的に stage** する（`git add <パス>`。`git add -A` や `git commit -a` は使わない）。
-  - 対象外の変更や身に覚えのない差分・秘密情報が混在して分離できない場合は、**push せず停止して
-    ユーザーへ報告**する（無関係な作業や機密を誤って push しないため）。
+  - `git status` / `git diff`（未ステージ）/ `git diff --cached`（**既に index にある分**）で
+    変更の由来を確認する。既に stage 済みの無関係な変更・秘密情報が残っていないかも必ず見る。
+  - **今回の PR の対象のみを明示的に stage** する（`git add <パス>`。同一ファイル内に無関係な
+    hunk が混ざるなら `git add -p` で hunk 単位に選ぶ）。`git add -A` / `git commit -a` は使わない。
+  - 対象外の変更・身に覚えのない差分・秘密情報が混在して分離できない場合は、**push せず停止して
+    ユーザーへ報告**する。
   - 日本語メッセージで論理単位ごとに commit。メッセージ末尾に付与:
     `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
 - リモートへ push: `git push -u origin <branch>`
@@ -139,33 +141,22 @@ CodeRabbit のレビューは数分かかる。完了を待って自動で次へ
   （前景 `sleep` は使わず、`run_in_background`＝デタッチ実行）。到着判定は **構造化フィールドを主**に
   行う（`.user.type=="Bot"` かつ `login` が `coderabbitai` で始まり、`submitted_at` が `$since` より
   後の**レビュー提出**があるか）。bot 名や「Actionable comments posted:」本文への依存は補助に留める。
+  取得は **`gh api --paginate`（全ページ）＋ gh 内蔵 `--jq`** で行う（外部 `jq` 不要。認証は gh が
+  処理するのでトークンは argv に出ない）。件数は行数で数える。レート消費は **60 秒間隔・reviews
+  エンドポイント1本**で十分小さい（数十 req/時。上限 5,000/時に対し些少）。
 
-  レート消費を抑えるため **ETag 条件付きリクエスト**で「変化あり(200)/無し(304)」を判定し、
-  **304 はレート非課金**。認証トークンは **argv に出さず** 権限を絞った curl 設定ファイル経由で渡す。
-  JSON 解析は **`gh api --jq`（gh 内蔵 jq）** を使う（環境に外部 `jq` が無くても動く）。
+  > 一覧の条件付きリクエスト（ETag）は先頭ページの ETag しか反映せず、100 件目以降の新レビューを
+  > 取りこぼす恐れがあるため使わない。素直な全ページ集計にする。
 
   ```bash
-  n="<PR番号>"; since="<ステップ4Bで記録した時刻>"
-  repo="s-iguchi09/FlatFileList"
-  umask 077; tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT   # 終了時に必ず後始末
-  # 認証ヘッダは設定ファイル経由（プロセス一覧にトークンを出さない）
-  printf 'header = "Authorization: Bearer %s"\nheader = "Accept: application/vnd.github+json"\n' \
-    "$(gh auth token)" > "$tmp/curl.cfg"
-  url="https://api.github.com/repos/$repo/pulls/$n/reviews"
-  etag=""; deadline=$(( $(date +%s) + 900 ))              # 15分で打ち切り
+  n="<PR番号>"; since="<ステップ4Bで記録した時刻>"; repo="s-iguchi09/FlatFileList"
+  deadline=$(( $(date +%s) + 900 ))                       # 15分で打ち切り
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    # --connect-timeout/--max-time でハング時も deadline を超えないようにする
-    code=$(curl -sS --connect-timeout 10 --max-time 30 -K "$tmp/curl.cfg" \
-      ${etag:+-H "If-None-Match: $etag"} \
-      -o "$tmp/rev.json" -D "$tmp/hdr.txt" -w '%{http_code}' "$url" || echo 000)
-    if [ "$code" = "200" ]; then                          # 変化あり（304/000は非課金）
-      etag=$(awk 'tolower($1)=="etag:"{print $2}' "$tmp/hdr.txt" | tr -d "\r")
-      # --paginate で全ページ集計（既定30件で切れて取りこぼすのを防ぐ）。行数=件数
-      cnt=$(gh api --paginate "repos/$repo/pulls/$n/reviews?per_page=100" \
-        --jq ".[]|select(.user.type==\"Bot\" and (.user.login|startswith(\"coderabbitai\")) and .submitted_at>\"$since\")|.id" \
-        2>/dev/null | wc -l | tr -d ' ' || echo 0)
-      [ "${cnt:-0}" -gt 0 ] && { echo "review-ready:$cnt"; break; }
-    fi
+    # --paginate で全ページ集計（既定30件で切れて31件目以降を取りこぼさない）。行数=件数
+    cnt=$(gh api --paginate "repos/$repo/pulls/$n/reviews?per_page=100" \
+      --jq ".[]|select(.user.type==\"Bot\" and (.user.login|startswith(\"coderabbitai\")) and .submitted_at>\"$since\")|.id" \
+      2>/dev/null | wc -l | tr -d ' ')
+    [ "${cnt:-0}" -gt 0 ] && { echo "review-ready:$cnt"; break; }
     sleep 60
   done
   ```
@@ -221,6 +212,6 @@ CodeRabbit のレビューは数分かかる。完了を待って自動で次へ
 - 本リポジトリには `.coderabbit.yaml`（レビュー設定）がある。CodeRabbit のレビュー方針
   （日本語・徹底レビュー・XMLコメント/MVVMチェック）はこの設定で制御される。設定変更を
   `main` に反映するには PR マージが必要（初回はこの PR に含めて反映される）。
-- **レート消費の最小化（モード B）**: 待機ループは ①条件付きリクエスト（ETag→304 はノーカウント）
-  ②60 秒間隔 ③エンドポイント1本（reviews のみ）で、GitHub API 消費を最小化する。
+- **レート消費の最小化（モード B）**: 待機ループは ①60 秒間隔 ②エンドポイント1本（reviews のみ）
+  ③新レビュー検知後にだけ本文/インラインコメントを取得、で GitHub API 消費を小さく保つ（数十 req/時）。
   モード A（Webhook）はプッシュ受信なので待機中のポーリング消費は元々ゼロ。
