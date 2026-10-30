@@ -67,10 +67,12 @@ namespace FlatFileList.Utilities
                     .GetSection(UserSettings.SectionName);
                 var settings = section.Get<UserSettings>() ?? new();
 
-                // 一覧の要素は変換に失敗するとバインダーが例外を出さずに除外するため、要素数で検出する
-                if (settings.CustomOpenProcesses.Count != section.GetSection(nameof(UserSettings.CustomOpenProcesses)).GetChildren().Count()
-                    || settings.ExcludeExtensions.Count != section.GetSection(nameof(UserSettings.ExcludeExtensions)).GetChildren().Count())
-                    throw new InvalidDataException("Some list items could not be converted.");
+                // 一覧は変換できない要素や配列でない値(文字列など)をバインダーが例外を出さずに無視するため、
+                // 配列でない値と要素数の不一致で検出する
+                // (ErrorOnUnknownConfiguration は不要になった古いキーまで失敗扱いにするため使わない)
+                if (!IsListBound(section, nameof(UserSettings.CustomOpenProcesses), settings.CustomOpenProcesses.Count)
+                    || !IsListBound(section, nameof(UserSettings.ExcludeExtensions), settings.ExcludeExtensions.Count))
+                    throw new InvalidDataException("Some list settings could not be converted.");
 
                 return values;
             }
@@ -89,6 +91,20 @@ namespace FlatFileList.Utilities
                 }
                 return [];
             }
+        }
+
+        /// <summary>
+        /// 一覧の設定が配列として、すべての要素を欠落なく束縛できたかを判定する。
+        /// </summary>
+        /// <param name="section">ユーザー設定のセクション。</param>
+        /// <param name="key">一覧の設定のキー。</param>
+        /// <param name="boundCount">束縛できた要素数。</param>
+        /// <returns>配列でない値(文字列など)が無く、構成の要素数と束縛できた要素数が一致する場合は <see langword="true"/>。</returns>
+        private static bool IsListBound(IConfigurationSection section, string key, int boundCount)
+        {
+            var list = section.GetSection(key);
+            // 空配列([])は空文字列の値として読み込まれるため、空文字列は配列でない値として扱わない
+            return string.IsNullOrEmpty(list.Value) && list.GetChildren().Count() == boundCount;
         }
 
         /// <summary>
