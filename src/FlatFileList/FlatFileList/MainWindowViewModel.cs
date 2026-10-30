@@ -59,12 +59,19 @@ namespace FlatFileList
         public ReadOnlyReactivePropertySlim<bool> CanExecuteOfSearch { get; }
         public ReactiveProperty<bool> IsSearching { get; } = new(false);
 
+        /// <summary>前回保存日時の取得を行わないかどうか。</summary>
         public ReactivePropertySlim<bool> IsIgnoreGettingLastSaveTime { get; } = new();
+        /// <summary>隠しフォルダーを検索対象外にするかどうか。</summary>
         public ReactivePropertySlim<bool> IsExcludeHiddenDirectory { get; } = new();
+        /// <summary>ドットで始まるフォルダーを検索対象外にするかどうか。</summary>
         public ReactivePropertySlim<bool> IsExcludeDotStartDirectory { get; } = new();
+        /// <summary>システムフォルダーを検索対象外にするかどうか。</summary>
         public ReactivePropertySlim<bool> IsExcludeSystemDirectory { get; } = new();
+        /// <summary>ドットで始まるファイルを検索対象外にするかどうか。</summary>
         public ReactivePropertySlim<bool> IsExcludeDotStartFile { get; } = new();
+        /// <summary>隠しファイルを検索対象外にするかどうか。</summary>
         public ReactivePropertySlim<bool> IsExcludeHiddenFile { get; } = new();
+        /// <summary>システムファイルを検索対象外にするかどうか。</summary>
         public ReactivePropertySlim<bool> IsExcludeSystemFile { get; } = new();
 
         public ReactiveCommandSlim ClearSearchResult { get; } = new();
@@ -171,6 +178,7 @@ namespace FlatFileList
 
         #region 拡大率
         public ReadOnlyDictionary<int, string> WindowScaleTransformPers { get; } = new(new List<int>() { 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300 }.ToDictionary(v => v, v => $"{v}%"));
+        /// <summary>ウィンドウの表示倍率(%)。<see cref="WindowScaleTransformPers"/> のキーのいずれか。</summary>
         public ReactivePropertySlim<int> WindowScaleTransformPer { get; } = new();
         public ReadOnlyReactivePropertySlim<double> WindowScale { get; }
         #endregion
@@ -201,7 +209,10 @@ namespace FlatFileList
             IsExcludeDotStartFile.Value = settings.IsExcludeDotStartFile;
             IsExcludeHiddenFile.Value = settings.IsExcludeHiddenFile;
             IsExcludeSystemFile.Value = settings.IsExcludeSystemFile;
-            WindowScaleTransformPer.Value = settings.WindowScaleTransformPer;
+            // 設定ファイルは手編集できるため、選択肢にない倍率(0 など)は既定の 100% に戻す
+            WindowScaleTransformPer.Value = WindowScaleTransformPers.ContainsKey(settings.WindowScaleTransformPer)
+                ? settings.WindowScaleTransformPer
+                : 100;
 
             #endregion
 
@@ -559,12 +570,14 @@ namespace FlatFileList
 
             #region UserProfile読み込み
 
-            foreach (var item in settings.CustomOpenProcesses ?? [])
+            // 手編集された設定ファイルに備え、null 要素は除外する
+            foreach (var item in settings.CustomOpenProcesses?.OfType<CustomApplicationProcessSetting>() ?? [])
             {
                 CustomApplicationProcesses.Add(CustomApplicationProcess.CreateFromSetting(item));
             }
 
-            foreach (var item in settings.ExcludeExtensions ?? [])
+            // 画面からは空の拡張子を追加できないため、空の要素(JSON の null は空の要素として読み込まれる)も除外する
+            foreach (var item in settings.ExcludeExtensions?.OfType<ExcludeExtensionSetting>().Where(e => !string.IsNullOrEmpty(e.ExtensionText)) ?? [])
             {
                 ExcludeExtensions.Add(ExcludeExtension.CreateFromSetting(item));
             }
