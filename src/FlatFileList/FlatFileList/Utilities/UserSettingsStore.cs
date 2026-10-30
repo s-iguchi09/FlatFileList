@@ -32,12 +32,18 @@ namespace FlatFileList.Utilities
         public string? LoadErrorMessage { get; private set; }
 
         /// <summary>
-        /// 設定ファイルを読み込み、構成へ追加するキーと値の一覧を返す。
+        /// 設定ファイルを上書きしてよいかどうか。読み込めない設定ファイルを .bak へ退避できなかった場合は
+        /// 元のファイルを失わないよう <see langword="false"/> にし、保存を拒否する。
+        /// </summary>
+        private bool _canOverwriteFile = true;
+
+        /// <summary>
+        /// 設定ファイルを読み込み、ユーザー設定の構成とするキーと値の一覧を返す。
         /// JSON の null は型の既定値(bool なら false)として束縛されてしまうため除外し、設定モデルの既定値を使わせる。
         /// JSON が壊れている・<see cref="UserSettings.SectionName"/> セクションが無い・値を設定の型へ変換できない場合は、
         /// 既定値で起動できるようファイルを .bak へ退避して <see cref="LoadErrorMessage"/> に理由を記録する。
         /// </summary>
-        /// <returns>構成へ追加するキーと値の一覧。ファイルが無い・読み込めない場合は空。</returns>
+        /// <returns>ユーザー設定の構成とするキーと値の一覧。ファイルが無い・読み込めない場合は空。</returns>
         public IReadOnlyList<KeyValuePair<string, string?>> LoadFile()
         {
             if (!File.Exists(FilePath))
@@ -54,12 +60,17 @@ namespace FlatFileList.Utilities
 
                 var values = configuration.AsEnumerable().Where(p => p.Value is not null).ToList();
 
-                // 値を設定の型へ変換できるか(例: 数値の項目に文字列)を、構成へ追加する前に検証する
-                new ConfigurationBuilder()
+                // 値を設定の型へ変換できるか(例: 数値の項目に文字列)を、構成とする前に検証する
+                var section = new ConfigurationBuilder()
                     .AddInMemoryCollection(values)
                     .Build()
-                    .GetSection(UserSettings.SectionName)
-                    .Get<UserSettings>();
+                    .GetSection(UserSettings.SectionName);
+                var settings = section.Get<UserSettings>() ?? new();
+
+                // 一覧の要素は変換に失敗するとバインダーが例外を出さずに除外するため、要素数で検出する
+                if (settings.CustomOpenProcesses.Count != section.GetSection(nameof(UserSettings.CustomOpenProcesses)).GetChildren().Count()
+                    || settings.ExcludeExtensions.Count != section.GetSection(nameof(UserSettings.ExcludeExtensions)).GetChildren().Count())
+                    throw new InvalidDataException("Some list items could not be converted.");
 
                 return values;
             }
@@ -73,7 +84,8 @@ namespace FlatFileList.Utilities
                 }
                 catch (Exception moveEx) when (moveEx is IOException or UnauthorizedAccessException)
                 {
-                    LoadErrorMessage = "Failed to load User Profile. Started with default settings.";
+                    _canOverwriteFile = false;
+                    LoadErrorMessage = "Failed to load User Profile. Started with default settings. (Settings will not be saved.)";
                 }
                 return [];
             }
@@ -83,8 +95,12 @@ namespace FlatFileList.Utilities
         /// ユーザー設定を <see cref="UserSettings.SectionName"/> セクション配下に書き出して保存する。
         /// </summary>
         /// <param name="settings">保存するユーザー設定。</param>
+        /// <exception cref="IOException">読み込めなかった設定ファイルを退避できておらず、上書きすると元の内容が失われる場合。</exception>
         public void Save(UserSettings settings)
         {
+            if (!_canOverwriteFile)
+                throw new IOException("The unreadable settings file could not be backed up, so it will not be overwritten.");
+
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
 
             var tempPath = FilePath + ".tmp";

@@ -28,10 +28,13 @@ public partial class App : Application
     {
         var builder = Host.CreateApplicationBuilder();
 
+        // ユーザー設定は設定ファイルの内容だけから束縛する(環境変数など、ホスト既定の構成の値を混ぜない)
         var userSettingsStore = new UserSettingsStore();
-        builder.Configuration.AddInMemoryCollection(userSettingsStore.LoadFile());
+        var userSettingsConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(userSettingsStore.LoadFile())
+            .Build();
 
-        builder.Services.Configure<UserSettings>(builder.Configuration.GetSection(UserSettings.SectionName));
+        builder.Services.Configure<UserSettings>(userSettingsConfiguration.GetSection(UserSettings.SectionName));
         builder.Services.AddSingleton<IUserSettingsStore>(userSettingsStore);
         builder.Services.AddSingleton<MainWindowViewModel>();
         builder.Services.AddSingleton<MainWindow>();
