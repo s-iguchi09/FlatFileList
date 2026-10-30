@@ -3,6 +3,7 @@ using FlatFileList.Extensions;
 using FlatFileList.Interfaces;
 using FlatFileList.Utilities;
 using FlatFileList.Utilities.Shell32;
+using Microsoft.Extensions.Options;
 using Microsoft.Xaml.Behaviors.Core;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -58,13 +59,13 @@ namespace FlatFileList
         public ReadOnlyReactivePropertySlim<bool> CanExecuteOfSearch { get; }
         public ReactiveProperty<bool> IsSearching { get; } = new(false);
 
-        public ReactivePropertySlim<bool> IsIgnoreGettingLastSaveTime { get; } = new(Properties.Settings.Default.IsIgnoreGettingLastSaveTime);
-        public ReactivePropertySlim<bool> IsExcludeHiddenDirectory { get; } = new(Properties.Settings.Default.IsExcludeHiddenDirectory);
-        public ReactivePropertySlim<bool> IsExcludeDotStartDirectory { get; } = new(Properties.Settings.Default.IsExcludeDotStartDirectory);
-        public ReactivePropertySlim<bool> IsExcludeSystemDirectory { get; } = new(Properties.Settings.Default.IsExcludeSystemDirectory);
-        public ReactivePropertySlim<bool> IsExcludeDotStartFile { get; } = new(Properties.Settings.Default.IsExcludeDotStartFile);
-        public ReactivePropertySlim<bool> IsExcludeHiddenFile { get; } = new(Properties.Settings.Default.IsExcludeHiddenFile);
-        public ReactivePropertySlim<bool> IsExcludeSystemFile { get; } = new(Properties.Settings.Default.IsExcludeSystemFile);
+        public ReactivePropertySlim<bool> IsIgnoreGettingLastSaveTime { get; } = new();
+        public ReactivePropertySlim<bool> IsExcludeHiddenDirectory { get; } = new();
+        public ReactivePropertySlim<bool> IsExcludeDotStartDirectory { get; } = new();
+        public ReactivePropertySlim<bool> IsExcludeSystemDirectory { get; } = new();
+        public ReactivePropertySlim<bool> IsExcludeDotStartFile { get; } = new();
+        public ReactivePropertySlim<bool> IsExcludeHiddenFile { get; } = new();
+        public ReactivePropertySlim<bool> IsExcludeSystemFile { get; } = new();
 
         public ReactiveCommandSlim ClearSearchResult { get; } = new();
 
@@ -170,17 +171,38 @@ namespace FlatFileList
 
         #region 拡大率
         public ReadOnlyDictionary<int, string> WindowScaleTransformPers { get; } = new(new List<int>() { 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300 }.ToDictionary(v => v, v => $"{v}%"));
-        public ReactivePropertySlim<int> WindowScaleTransformPer { get; } = new(Properties.Settings.Default.WindowScaleTransformPer);
+        public ReactivePropertySlim<int> WindowScaleTransformPer { get; } = new();
         public ReadOnlyReactivePropertySlim<double> WindowScale { get; }
         #endregion
+
+        /// <summary>ユーザー設定の保存先。</summary>
+        private readonly IUserSettingsStore _userSettingsStore;
 
         /// <summary>
         /// 各リアクティブプロパティ・コマンドを構築し、検索やフィルター、進捗表示、ユーザー設定の
         /// 読み込み・保存に関する購読を配線する。
         /// </summary>
-        public MainWindowViewModel()
+        /// <param name="userSettings">起動時に構成から読み込んだユーザー設定。</param>
+        /// <param name="userSettingsStore">ユーザー設定の保存先。</param>
+        public MainWindowViewModel(IOptions<UserSettings> userSettings, IUserSettingsStore userSettingsStore)
         {
             using var statusTextRefresh = Disposable.Create(() => StatusText.Value = string.Empty);
+
+            _userSettingsStore = userSettingsStore;
+
+            #region UserProfile初期値
+
+            var settings = userSettings.Value;
+            IsIgnoreGettingLastSaveTime.Value = settings.IsIgnoreGettingLastSaveTime;
+            IsExcludeHiddenDirectory.Value = settings.IsExcludeHiddenDirectory;
+            IsExcludeDotStartDirectory.Value = settings.IsExcludeDotStartDirectory;
+            IsExcludeSystemDirectory.Value = settings.IsExcludeSystemDirectory;
+            IsExcludeDotStartFile.Value = settings.IsExcludeDotStartFile;
+            IsExcludeHiddenFile.Value = settings.IsExcludeHiddenFile;
+            IsExcludeSystemFile.Value = settings.IsExcludeSystemFile;
+            WindowScaleTransformPer.Value = settings.WindowScaleTransformPer;
+
+            #endregion
 
             Title = RootPath.Select(p => string.IsNullOrEmpty(p) ? _TITLE : string.Join(" - ", _TITLE, p)).ToReadOnlyReactivePropertySlim<string>().AddTo(_disposable);
 
@@ -536,14 +558,14 @@ namespace FlatFileList
 
             #region UserProfile読み込み
 
-            foreach (var item in Properties.Settings.Default?.CustomOpenProcess?.SafeCast<string>().Where(s => !string.IsNullOrEmpty(s)) ?? [])
+            foreach (var item in settings.CustomOpenProcesses ?? [])
             {
-                CustomApplicationProcesses.Add(CustomApplicationProcess.CreateFromSetting(item ?? string.Empty));
+                CustomApplicationProcesses.Add(CustomApplicationProcess.CreateFromSetting(item));
             }
 
-            foreach(var item in Properties.Settings.Default?.ExcludeExtensions?.SafeCast<string>().Where(s => !string.IsNullOrEmpty(s)) ?? [])
+            foreach (var item in settings.ExcludeExtensions ?? [])
             {
-                ExcludeExtensions.Add(ExcludeExtension.CreateFromSetting(item ?? string.Empty));
+                ExcludeExtensions.Add(ExcludeExtension.CreateFromSetting(item));
             }
 
             #endregion
@@ -568,20 +590,27 @@ namespace FlatFileList
                              )
                       .Subscribe(_ =>
                       {
-                          using var save = Disposable.Create(() => Properties.Settings.Default.Save());
-                          Properties.Settings.Default.IsExcludeDotStartDirectory = IsExcludeDotStartDirectory.Value;
-                          Properties.Settings.Default.IsExcludeHiddenDirectory = IsExcludeHiddenDirectory.Value;
-                          Properties.Settings.Default.IsExcludeSystemDirectory = IsExcludeSystemDirectory.Value;
-                          Properties.Settings.Default.IsExcludeDotStartFile = IsExcludeDotStartFile.Value;
-                          Properties.Settings.Default.IsExcludeHiddenFile = IsExcludeHiddenFile.Value;
-                          Properties.Settings.Default.IsExcludeSystemFile = IsExcludeSystemFile.Value;
-                          Properties.Settings.Default.IsIgnoreGettingLastSaveTime = IsIgnoreGettingLastSaveTime.Value;
-                          Properties.Settings.Default.CustomOpenProcess.Clear();
-                          Properties.Settings.Default.CustomOpenProcess.AddRange(CustomApplicationProcesses.Select(c => c.ToSettingParameter()).ToArray());
-                          Properties.Settings.Default.ExcludeExtensions.Clear();
-                          Properties.Settings.Default.ExcludeExtensions.AddRange(ExcludeExtensions.Select(e => e.ToSettingParameter()).ToArray());
-                          Properties.Settings.Default.WindowScaleTransformPer = WindowScaleTransformPer.Value;
-                          StatusText.Value = $"Save User Profile.";
+                          try
+                          {
+                              _userSettingsStore.Save(new()
+                              {
+                                  IsExcludeDotStartDirectory = IsExcludeDotStartDirectory.Value,
+                                  IsExcludeHiddenDirectory = IsExcludeHiddenDirectory.Value,
+                                  IsExcludeSystemDirectory = IsExcludeSystemDirectory.Value,
+                                  IsExcludeDotStartFile = IsExcludeDotStartFile.Value,
+                                  IsExcludeHiddenFile = IsExcludeHiddenFile.Value,
+                                  IsExcludeSystemFile = IsExcludeSystemFile.Value,
+                                  IsIgnoreGettingLastSaveTime = IsIgnoreGettingLastSaveTime.Value,
+                                  CustomOpenProcesses = CustomApplicationProcesses.Select(c => c.ToSetting()).ToList(),
+                                  ExcludeExtensions = ExcludeExtensions.Select(e => e.ToSetting()).ToList(),
+                                  WindowScaleTransformPer = WindowScaleTransformPer.Value,
+                              });
+                              StatusText.Value = $"Save User Profile.";
+                          }
+                          catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                          {
+                              StatusText.Value = $"Failed to save User Profile. {ex.Message}";
+                          }
                       })
                       .AddTo(_disposable);
 
@@ -955,13 +984,27 @@ namespace FlatFileList
         /// デザイン時に表示するサンプルのファイル項目を追加し、対応するフォルダー列の表示状態を設定する。
         /// </summary>
         public MainWindowViewModelDesignMode()
-            : base()
+            : base(Options.Create(new UserSettings()), new DesignTimeUserSettingsStore())
         {
             _fileProperties.Add(new(@"C:\Windows\System32\notepad.exe", @"C:\Windows"));
 
             foreach (int index in Enumerable.Range(0, ConstantObject.MaxDirectoryColumnCount))
             {
                 IsDirectoriesExists[index].Value = _fileProperties.Any(f => !string.IsNullOrEmpty(f.Directories.Skip(index)?.FirstOrDefault()?.Name ?? string.Empty));
+            }
+        }
+
+        /// <summary>
+        /// デザイン時用のユーザー設定保存先。デザイナーから実際の設定ファイルを書き換えないよう、何も保存しない。
+        /// </summary>
+        private class DesignTimeUserSettingsStore : IUserSettingsStore
+        {
+            /// <summary>
+            /// 何もしない。
+            /// </summary>
+            /// <param name="settings">保存対象のユーザー設定(無視される)。</param>
+            public void Save(UserSettings settings)
+            {
             }
         }
     }
