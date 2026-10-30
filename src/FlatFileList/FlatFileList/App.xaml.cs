@@ -22,15 +22,18 @@ public partial class App : Application
 
     /// <summary>
     /// アプリケーションを初期化する。ユーザー設定ファイルを構成に読み込み、各サービスを登録した汎用ホストを構築する。
+    /// 設定ファイルが壊れている・値を変換できない場合は読み込まず、既定値で起動する。
     /// </summary>
     public App()
     {
         var builder = Host.CreateApplicationBuilder();
 
-        builder.Configuration.AddJsonFile(UserSettingsStore.FilePath, optional: true, reloadOnChange: false);
+        var userSettingsStore = new UserSettingsStore();
+        if (userSettingsStore.ValidateFile())
+            builder.Configuration.AddJsonFile(UserSettingsStore.FilePath, optional: true, reloadOnChange: false);
 
         builder.Services.Configure<UserSettings>(builder.Configuration.GetSection(UserSettings.SectionName));
-        builder.Services.AddSingleton<IUserSettingsStore, UserSettingsStore>();
+        builder.Services.AddSingleton<IUserSettingsStore>(userSettingsStore);
         builder.Services.AddSingleton<MainWindowViewModel>();
         builder.Services.AddSingleton<MainWindow>();
 

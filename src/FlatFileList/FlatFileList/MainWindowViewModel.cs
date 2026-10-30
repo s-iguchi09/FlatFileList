@@ -186,7 +186,8 @@ namespace FlatFileList
         /// <param name="userSettingsStore">ユーザー設定の保存先。</param>
         public MainWindowViewModel(IOptions<UserSettings> userSettings, IUserSettingsStore userSettingsStore)
         {
-            using var statusTextRefresh = Disposable.Create(() => StatusText.Value = string.Empty);
+            // 設定ファイルを読み込めず既定値で起動した場合は、その旨を初期のステータスとして表示する
+            using var statusTextRefresh = Disposable.Create(() => StatusText.Value = userSettingsStore.LoadErrorMessage ?? string.Empty);
 
             _userSettingsStore = userSettingsStore;
 
@@ -999,6 +1000,9 @@ namespace FlatFileList
         /// </summary>
         private class DesignTimeUserSettingsStore : IUserSettingsStore
         {
+            /// <summary>デザイン時は設定ファイルを読み込まないため、常に <see langword="null"/>。</summary>
+            public string? LoadErrorMessage => null;
+
             /// <summary>
             /// 何もしない。
             /// </summary>
