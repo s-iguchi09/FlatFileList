@@ -586,6 +586,9 @@ namespace FlatFileList
 
             #region UserProfile更新
 
+            // 購読時に各プロパティ(一覧の要素を含む)が現在値を通知するため、購読が終わるまでの通知では保存しない
+            // (ユーザー操作なしに設定ファイルを書き換えない)
+            var isUserProfileSubscribed = false;
             Observable.Merge(CustomApplicationProcesses.ObserveElementObservableProperty(c => c.IsEnabled).ToUnit(),
                              CustomApplicationProcesses.ObserveElementObservableProperty(c => c.Extension).ToUnit(),
                              CustomApplicationProcesses.ObserveElementObservableProperty(c => c.Application).ToUnit(),
@@ -602,6 +605,7 @@ namespace FlatFileList
                              IsIgnoreGettingLastSaveTime.ToUnit(),
                              WindowScaleTransformPer.ToUnit()
                              )
+                      .Where(_ => isUserProfileSubscribed)
                       .Subscribe(_ =>
                       {
                           try
@@ -627,6 +631,7 @@ namespace FlatFileList
                           }
                       })
                       .AddTo(_disposable);
+            isUserProfileSubscribed = true;
 
             #endregion
 

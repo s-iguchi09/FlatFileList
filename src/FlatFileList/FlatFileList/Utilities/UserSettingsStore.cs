@@ -32,23 +32,36 @@ namespace FlatFileList.Utilities
         public string? LoadErrorMessage { get; private set; }
 
         /// <summary>
-        /// 設定ファイルが構成として読み込めるか(JSON として正しく、各値が設定の型へ変換できるか)を検証する。
-        /// 読み込めない場合は既定値で起動できるよう、ファイルを .bak へ退避して <see cref="LoadErrorMessage"/> に理由を記録する。
+        /// 設定ファイルを読み込み、構成へ追加するキーと値の一覧を返す。
+        /// JSON の null は型の既定値(bool なら false)として束縛されてしまうため除外し、設定モデルの既定値を使わせる。
+        /// JSON が壊れている・<see cref="UserSettings.SectionName"/> セクションが無い・値を設定の型へ変換できない場合は、
+        /// 既定値で起動できるようファイルを .bak へ退避して <see cref="LoadErrorMessage"/> に理由を記録する。
         /// </summary>
-        /// <returns>設定ファイルを構成へ追加してよい場合は <see langword="true"/>。ファイルが無い・読み込めない場合は <see langword="false"/>。</returns>
-        public bool ValidateFile()
+        /// <returns>構成へ追加するキーと値の一覧。ファイルが無い・読み込めない場合は空。</returns>
+        public IReadOnlyList<KeyValuePair<string, string?>> LoadFile()
         {
             if (!File.Exists(FilePath))
-                return false;
+                return [];
 
             try
             {
-                new ConfigurationBuilder()
+                var configuration = new ConfigurationBuilder()
                     .AddJsonFile(FilePath, optional: false, reloadOnChange: false)
+                    .Build();
+
+                if (!configuration.GetSection(UserSettings.SectionName).Exists())
+                    throw new InvalidDataException($"{UserSettings.SectionName} section not found.");
+
+                var values = configuration.AsEnumerable().Where(p => p.Value is not null).ToList();
+
+                // 値を設定の型へ変換できるか(例: 数値の項目に文字列)を、構成へ追加する前に検証する
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(values)
                     .Build()
                     .GetSection(UserSettings.SectionName)
                     .Get<UserSettings>();
-                return true;
+
+                return values;
             }
             catch (Exception ex) when (ex is InvalidDataException or FormatException or InvalidOperationException or IOException or UnauthorizedAccessException)
             {
@@ -62,7 +75,7 @@ namespace FlatFileList.Utilities
                 {
                     LoadErrorMessage = "Failed to load User Profile. Started with default settings.";
                 }
-                return false;
+                return [];
             }
         }
 

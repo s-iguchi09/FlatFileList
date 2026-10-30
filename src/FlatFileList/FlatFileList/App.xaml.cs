@@ -29,8 +29,7 @@ public partial class App : Application
         var builder = Host.CreateApplicationBuilder();
 
         var userSettingsStore = new UserSettingsStore();
-        if (userSettingsStore.ValidateFile())
-            builder.Configuration.AddJsonFile(UserSettingsStore.FilePath, optional: true, reloadOnChange: false);
+        builder.Configuration.AddInMemoryCollection(userSettingsStore.LoadFile());
 
         builder.Services.Configure<UserSettings>(builder.Configuration.GetSection(UserSettings.SectionName));
         builder.Services.AddSingleton<IUserSettingsStore>(userSettingsStore);
