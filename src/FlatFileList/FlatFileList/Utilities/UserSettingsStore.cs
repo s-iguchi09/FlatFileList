@@ -119,10 +119,19 @@ namespace FlatFileList.Utilities
 
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
 
-            var tempPath = FilePath + ".tmp";
+            // 複数インスタンスが同時に保存しても互いの一時ファイルを上書きしないよう、保存ごとに一意な名前にする
+            var tempPath = $"{FilePath}.{Guid.NewGuid():N}.tmp";
             var root = new Dictionary<string, UserSettings> { [UserSettings.SectionName] = settings };
-            File.WriteAllText(tempPath, JsonSerializer.Serialize(root, _jsonOptions));
-            File.Move(tempPath, FilePath, overwrite: true);
+            try
+            {
+                File.WriteAllText(tempPath, JsonSerializer.Serialize(root, _jsonOptions));
+                File.Move(tempPath, FilePath, overwrite: true);
+            }
+            finally
+            {
+                // 置き換えに失敗した場合に一時ファイルを残さない(置き換え済みなら既に存在しない)
+                File.Delete(tempPath);
+            }
         }
     }
 }
