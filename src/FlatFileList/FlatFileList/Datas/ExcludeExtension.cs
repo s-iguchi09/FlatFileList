@@ -1,5 +1,4 @@
-﻿using FlatFileList.Extensions;
-using Reactive.Bindings;
+﻿using Reactive.Bindings;
 
 namespace FlatFileList.Datas
 {
@@ -23,23 +22,22 @@ namespace FlatFileList.Datas
         }
 
         /// <summary>
-        /// この設定をカンマ区切りの設定文字列に変換する。
+        /// この設定を保存用のデータに変換する。
         /// </summary>
-        /// <returns>「有効,拡張子」形式の文字列。</returns>
-        public string ToSettingParameter()
+        /// <returns>保存用の <see cref="ExcludeExtensionSetting"/>。</returns>
+        public ExcludeExtensionSetting ToSetting()
         {
-            return $"{Enabled.Value},{ExtensionText}";
+            return new() { Enabled = Enabled.Value, ExtensionText = ExtensionText };
         }
 
         /// <summary>
-        /// カンマ区切りの設定文字列からインスタンスを復元する。
+        /// 保存用のデータからインスタンスを復元する。
         /// </summary>
-        /// <param name="setting"><see cref="ToSettingParameter"/> で生成した設定文字列。</param>
+        /// <param name="setting"><see cref="ToSetting"/> で生成した保存用データ。</param>
         /// <returns>復元した <see cref="ExcludeExtension"/>。</returns>
-        public static ExcludeExtension CreateFromSetting(string setting)
+        public static ExcludeExtension CreateFromSetting(ExcludeExtensionSetting setting)
         {
-            var items = setting?.Split(',').AsEnumerable() ?? Enumerable.Empty<string>();
-            return new(items.Skip(1).FirstOrDefault(string.Empty), items.FirstOrDefault(string.Empty).ToBoolean(false));
+            return new(setting.ExtensionText ?? string.Empty, setting.Enabled);
         }
     }
 }

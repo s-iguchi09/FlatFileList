@@ -17,12 +17,13 @@ namespace FlatFileList;
 public partial class MainWindow : Window
 {
     /// <summary>
-    /// メインウィンドウを初期化し、<see cref="MainWindowViewModel"/> を DataContext に設定する。
+    /// メインウィンドウを初期化し、DI から受け取った <see cref="MainWindowViewModel"/> を DataContext に設定する。
     /// </summary>
-    public MainWindow()
+    /// <param name="viewModel">メインウィンドウの ViewModel。</param>
+    public MainWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
-        DataContext = new MainWindowViewModel();
+        DataContext = viewModel;
     }
 
     /// <summary>

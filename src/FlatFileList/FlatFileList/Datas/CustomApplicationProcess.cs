@@ -1,5 +1,4 @@
-﻿using FlatFileList.Extensions;
-using Reactive.Bindings;
+﻿using Reactive.Bindings;
 
 namespace FlatFileList.Datas
 {
@@ -38,23 +37,22 @@ namespace FlatFileList.Datas
         }
 
         /// <summary>
-        /// この設定をカンマ区切りの設定文字列に変換する。
+        /// この設定を保存用のデータに変換する。
         /// </summary>
-        /// <returns>「有効,拡張子,アプリケーション,引数」形式の文字列。</returns>
-        public string ToSettingParameter()
+        /// <returns>保存用の <see cref="CustomApplicationProcessSetting"/>。</returns>
+        public CustomApplicationProcessSetting ToSetting()
         {
-            return $"{IsEnabled.Value},{Extension.Value},{Application.Value},{Args.Value}";
+            return new() { IsEnabled = IsEnabled.Value, Extension = Extension.Value, Application = Application.Value, Args = Args.Value };
         }
 
         /// <summary>
-        /// カンマ区切りの設定文字列からインスタンスを復元する。
+        /// 保存用のデータからインスタンスを復元する。
         /// </summary>
-        /// <param name="setting"><see cref="ToSettingParameter"/> で生成した設定文字列。</param>
+        /// <param name="setting"><see cref="ToSetting"/> で生成した保存用データ。</param>
         /// <returns>復元した <see cref="CustomApplicationProcess"/>。</returns>
-        public static CustomApplicationProcess CreateFromSetting(string setting)
+        public static CustomApplicationProcess CreateFromSetting(CustomApplicationProcessSetting setting)
         {
-            var items = setting?.Split(',').AsEnumerable() ?? Enumerable.Empty<string>();
-            return new(items.FirstOrDefault(string.Empty).ToBoolean(false), items.Skip(1).FirstOrDefault(string.Empty), items.Skip(2).FirstOrDefault(string.Empty), items.Skip(3).FirstOrDefault(string.Empty));
+            return new(setting.IsEnabled, setting.Extension ?? string.Empty, setting.Application ?? string.Empty, setting.Args ?? string.Empty);
         }
     }
 }
