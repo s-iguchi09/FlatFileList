@@ -8,10 +8,12 @@ using Microsoft.Xaml.Behaviors.Core;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Enumeration;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.RegularExpressions;
@@ -113,11 +115,27 @@ namespace FlatFileList
         //     ファイル1件ごとに更新すると UI スレッドが飽和して操作が固まるため、この件数ごとに間引く。
         private const int ProgressReportInterval = 100;
 
-        //NOTE:UI スレッドへの追加をまとめる単位。
-        private const int AddBatchSize = 500;
+        //NOTE:一覧への追加は Reset 通知1回でまとめて行うが、Reset のたびにビューの再構築が走るため、件数ではなく時間で間引く。
+        /// <summary>検索中に一覧へ反映する間隔。</summary>
+        private static readonly TimeSpan AddFlushInterval = TimeSpan.FromMilliseconds(250);
+
+        /// <summary>FileProperty を並列に構築する単位(件数)。</summary>
+        private const int BuildChunkSize = 2000;
+
+        /// <summary>フィルターの文字入力を確定させるまでの待ち時間。</summary>
+        private static readonly TimeSpan FilterTextThrottle = TimeSpan.FromMilliseconds(300);
+
+        /// <summary>表示中の行の通知をまとめる待ち時間(スクロール中の連続通知を間引く)。</summary>
+        private static readonly TimeSpan VisibleItemsThrottle = TimeSpan.FromMilliseconds(150);
+
+        /// <summary>ファイル変更通知をまとめる間隔(1回の保存で複数回通知されるため)。</summary>
+        private static readonly TimeSpan WatcherBufferInterval = TimeSpan.FromMilliseconds(500);
 
         public CollectionViewSource FileProperties { get; }
-        protected ReactiveCollection<FileProperty> _fileProperties { get; } = [];
+        protected RangeObservableCollection<FileProperty> _fileProperties { get; } = [];
+
+        /// <summary>ファイルパスから一覧の行を引くための索引(ファイル監視で使用)。</summary>
+        private readonly ConcurrentDictionary<string, FileProperty> _filePropertiesByPath = new(StringComparer.OrdinalIgnoreCase);
 
         public ReactivePropertySlim<bool> IsDirectory1Exists { get; } = new(false);
         public ReactivePropertySlim<bool> IsDirectory2Exists { get; } = new(false);
@@ -155,6 +173,8 @@ namespace FlatFileList
         public ReactiveCommandSlim<string> OpenDirectory { get; } = new();
         public ReactiveCommandSlim<IList> ShowFileProperties { get; } = new();
         public ReactiveCommandSlim<string> ShowDirectoryProperties { get; } = new();
+        /// <summary>画面に表示中の行(<see cref="FileProperty"/> のリスト)を受け取り、前回保存日時を優先取得させるコマンド。</summary>
+        public ReactiveCommandSlim<IList> NotifyVisibleItems { get; } = new();
 
         #endregion
 
@@ -162,6 +182,10 @@ namespace FlatFileList
 
         private CancellationTokenSource? _cancellationTokenSource;
         private Task? _refreshingLastSaveTimesTask;
+        /// <summary>実行中の前回保存日時の取得処理。表示中の行を優先させるために参照する。</summary>
+        private volatile LastSaveTimeLoader? _lastSaveTimeLoader;
+        /// <summary>直近に通知された、画面に表示中の行。前回保存日時の取得開始時に最初に優先させる。</summary>
+        private volatile IReadOnlyList<FileProperty> _lastVisibleItems = [];
 
         #endregion
 
@@ -247,30 +271,55 @@ namespace FlatFileList
             #endregion
 
             FileProperties = new() { Source = _fileProperties };
-            FileProperties.FilterAsObservable().Subscribe(e => e.Accepted = !IsHighlightVisibled.Value || ((FileProperty)e.Item).IsHighlighted.Value).AddTo(_disposable);
+            FileProperties.FilterAsObservable().Subscribe(e => e.Accepted = !IsHighlightVisibled.Value || ((FileProperty)e.Item).IsHighlighted).AddTo(_disposable);
 
             ExistsFileLists = _fileProperties.CollectionChangedAsObservable().Select(_ => _fileProperties.Any()).ToReadOnlyReactivePropertySlim().AddTo(_disposable);
 
             _watcher.AddTo(_disposable);
             _watcher.NotifyFilter = NotifyFilters.CreationTime | NotifyFilters.LastWrite;
-            _watcher.ChangedAsObservable().SubscribeOnUIDispatcher().Subscribe(e =>
-            {
-                var item = _fileProperties.SingleOrDefault(p => p.FilePath == e.FullPath);
-                item?.UpdateLastWriteTime();
-                Thread t = new(() =>
-                {
-                    if (item is null)
+            //NOTE:1回の保存で Changed は複数回通知されるため、一定時間まとめてパスを重複排除し、
+            //     以前のように通知ごとにスレッドを立てるのではなく、1バッチにつき1本の STA スレッドで処理する。
+            //     行は線形探索ではなくパスの索引から引く。
+            _watcher.ChangedAsObservable()
+                    .Buffer(WatcherBufferInterval)
+                    .Where(events => events.Count > 0)
+                    .Subscribe(events =>
                     {
-                        return;
-                    }
+                        var items = events.Select(e => e.FullPath)
+                                          .Distinct(StringComparer.OrdinalIgnoreCase)
+                                          .Select(path => _filePropertiesByPath.TryGetValue(path, out var item) ? item : null)
+                                          .OfType<FileProperty>()
+                                          .ToList();
 
-                    using ShellPropertyReader reader = new();
-                    item.UpdateModifiedTime(IsIgnoreGettingLastSaveTime.Value, reader);
-                });
-                t.SetApartmentState(ApartmentState.STA);
-                t.Start();
-            }).AddTo(_disposable);
+                        if (items.Count == 0)
+                        {
+                            return;
+                        }
+
+                        var isIgnoreGettingLastSaveTime = IsIgnoreGettingLastSaveTime.Value;
+                        Thread t = new(() =>
+                        {
+                            foreach (var item in items)
+                            {
+                                item.UpdateLastWriteTime();
+                                item.UpdateModifiedTime(isIgnoreGettingLastSaveTime);
+                            }
+                        })
+                        { IsBackground = true };
+                        t.SetApartmentState(ApartmentState.STA);
+                        t.Start();
+                    }).AddTo(_disposable);
             _watcher.IncludeSubdirectories = true;
+
+            //NOTE:スクロール中は連続して通知されるため、止まってから表示中の行を前回保存日時の取得に割り込ませる。
+            NotifyVisibleItems.Throttle(VisibleItemsThrottle)
+                              .Subscribe(items =>
+                              {
+                                  var visibleItems = items.OfType<FileProperty>().ToList();
+                                  _lastVisibleItems = visibleItems;
+                                  _lastSaveTimeLoader?.Prioritize(visibleItems);
+                              })
+                              .AddTo(_disposable);
 
             #region コマンド
 
@@ -341,20 +390,32 @@ namespace FlatFileList
                     Func<string, bool> funcIsDirectoryNamesMatch = CreateIsMatchSingleFunc(IsRegexDirectoryNameSearchEnabled.Value, FilteringDirectoryNameText.Value);
 
                     Parallel.ForEach(_fileProperties, f => f.UpdateIsHighlighted(funcIsFileNameMatch, funcIsExtensionTextMatch, funcIsDirectoryNamesMatch, funcIsLastWriteTimeMatch, funcIsModifiedTimeMatch));
-                    FileProperties.View.Refresh();
+
+                    //NOTE:ハイライト表示を切っている(全件表示)場合はフィルターが常に通すため、ビューの再構築は不要。
+                    //     行の見た目は IsHighlighted の変更通知で更新される。
+                    if (IsHighlightVisibled.Value)
+                    {
+                        FileProperties.View.Refresh();
+                    }
                 }
             }
 
+            //NOTE:文字入力は打鍵ごとに全件を再判定しないよう、入力が止まるまで待ってから反映する。
+            //     (以前は View 側の Binding Delay で遅延させていたが、ViewModel に一本化した)
+            //     チェック・日付・比較条件は1操作で1回しか変わらないため即時に反映する。
             Observable.Merge(FilteringFileNameText.ToUnit(),
                              FilteringExtensionText.ToUnit(),
-                             FilteringDirectoryNameText.ToUnit(),
+                             FilteringDirectoryNameText.ToUnit())
+                      .Throttle(FilterTextThrottle)
+                      .ObserveOnUIDispatcher()
+                      .Merge(Observable.Merge(
                              FilteringLastWriteTime.ToUnit(),
                              FilteringModifiedTime.ToUnit(),
                              IsRegexFileNameSearchEnabled.ToUnit(),
                              IsRegexExtensionTextSearchEnabled.ToUnit(),
                              IsRegexDirectoryNameSearchEnabled.ToUnit(),
                              FilteringLastWriteTimeComparisonConditionType.ToUnit(),
-                             FilteringModifiedTimeComparisonConditionType.ToUnit())
+                             FilteringModifiedTimeComparisonConditionType.ToUnit()))
                       .Subscribe(_ => RefreshIsMatchedOnUIDispatcher())
                       .AddTo(_disposable);
 
@@ -381,11 +442,8 @@ namespace FlatFileList
                 MaxCount.Value = 0;
                 SuccessedCount.Value = 0;
                 IsDirectoriesExists.ForEach(p => p.Value = false);
-                //NOTE:FileProperty は Rx の購読を抱えるため、Clear の前に破棄しないと検索のたびに蓄積して徐々に重くなる。
-                foreach (var f in _fileProperties)
-                {
-                    f.Dispose();
-                }
+                _filePropertiesByPath.Clear();
+                _lastVisibleItems = [];
                 _fileProperties.Clear();
             };
 
@@ -400,90 +458,101 @@ namespace FlatFileList
                 _watcher.EnableRaisingEvents = false;
                 _watcher.Path = DirectoryPath.Value;
 
+                //NOTE:検索条件はバックグラウンドから UI のコレクション(ExcludeExtensions 等)を触らないよう、開始時にここで確定させる。
+                var rootPath = DirectoryPath.Value.Last() == '\\' ? DirectoryPath.Value : $"{DirectoryPath.Value}\\";
+                var shouldRecurseDirectory = CreateValidatorForDirectory(IsExcludeDotStartDirectory.Value, IsExcludeHiddenDirectory.Value, IsExcludeSystemDirectory.Value);
+                var shouldIncludeFile = CreateValidatorForFile(IsExcludeDotStartFile.Value, IsExcludeHiddenFile.Value, IsExcludeSystemFile.Value, ExcludeExtensions.Where(ext => ext.Enabled.Value).Select(ext => ext.ExtensionText.StartsWith(".") ? ext.ExtensionText : $".{ext.ExtensionText}"));
+
+                Func<string, bool> funcIsFileNameMatch = CreateIsMatchSingleFunc(IsRegexFileNameSearchEnabled.Value, FilteringFileNameText.Value);
+                Func<string, bool> funcIsExtensionTextMatch = CreateIsMatchSingleFunc(IsRegexExtensionTextSearchEnabled.Value, FilteringExtensionText.Value);
+                Func<DateTime?, bool> funcIsLastWriteTimeMatch = CreateIsMatchDatetimeFunc(FilteringLastWriteTimeComparisonConditionType.Value, FilteringLastWriteTime.Value);
+                Func<DateTime?, bool> funcIsModifiedTimeMatch = CreateIsMatchDatetimeFunc(FilteringModifiedTimeComparisonConditionType.Value, FilteringModifiedTime.Value);
+                Func<string, bool> funcIsDirectoryNamesMatch = CreateIsMatchSingleFunc(IsRegexDirectoryNameSearchEnabled.Value, FilteringDirectoryNameText.Value);
+
                 await Task.Run(() =>
                 {
                     Debug.WriteLine($"1.{DateTime.Now.ToString()}");
-                    var allFilesString = Enumerable.Empty<string>();
+                    List<FoundFile> foundFiles;
 
                     IsIndeterminate.Value = true;
                     using (Disposable.Create(() => IsIndeterminate.Value = false))
                     {
-                        RootPath.Value = DirectoryPath.Value.Last() == '\\' ? DirectoryPath.Value : $"{DirectoryPath.Value}\\";
-                        Func<string, bool> validateDirectoryFunc = CreateValidatorForDirectory(IsExcludeDotStartDirectory.Value, IsExcludeHiddenDirectory.Value, IsExcludeSystemDirectory.Value);
-                        Func<string, bool> validateFileFunc = CreateValidatorForFile(IsExcludeDotStartFile.Value, IsExcludeHiddenFile.Value, IsExcludeSystemFile.Value, ExcludeExtensions.Where(ext => ext.Enabled.Value).Select(ext =>ext.ExtensionText.StartsWith(".") ? ext.ExtensionText : $".{ext.ExtensionText}"));
+                        RootPath.Value = rootPath;
                         var foundCount = 0;
-                        allFilesString = DirectoryEx.GetAllFiles(RootPath.Value, validateDirectoryFunc).Where(p => validateFileFunc(p)).Select(f =>
+                        foundFiles = DirectoryEx.EnumerateFiles(rootPath, shouldRecurseDirectory, shouldIncludeFile).Select(f =>
                         {
                             foundCount++;
                             if (foundCount % ProgressReportInterval == 0)
                             {
-                                StatusText.Value = $"File found. [\"{f}\"]";
+                                StatusText.Value = $"File found. [\"{f.Path}\"]";
                                 MaxCount.Value = foundCount;
                             }
                             return f;
                         }).ToList();
-                        MaxCount.Value = allFilesString.Count();
+                        MaxCount.Value = foundFiles.Count;
                     }
 
                     Debug.WriteLine($"2.{DateTime.Now.ToString()}");
 
-                    Func<string, bool> funcIsFileNameMatch = CreateIsMatchSingleFunc(IsRegexFileNameSearchEnabled.Value, FilteringFileNameText.Value);
-                    Func<string, bool> funcIsExtensionTextMatch = CreateIsMatchSingleFunc(IsRegexExtensionTextSearchEnabled.Value, FilteringExtensionText.Value);
-                    Func<DateTime?, bool> funcIsLastWriteTimeMatch = CreateIsMatchDatetimeFunc(FilteringLastWriteTimeComparisonConditionType.Value, FilteringLastWriteTime.Value);
-                    Func<DateTime?, bool> funcIsModifiedTimeMatch = CreateIsMatchDatetimeFunc(FilteringModifiedTimeComparisonConditionType.Value, FilteringModifiedTime.Value);
-                    Func<string, bool> funcIsDirectoryNamesMatch = CreateIsMatchSingleFunc(IsRegexDirectoryNameSearchEnabled.Value, FilteringDirectoryNameText.Value);
+                    //NOTE:FileProperty はチャンク単位で並列に構築し(FileIcon は Freeze 済みでスレッドを跨げる)、
+                    //     UI スレッドへの追加は一定時間ごとに AddRange でまとめて Reset 通知1回にする。
+                    //     中間階層のフォルダー情報は検索1回分のキャッシュで全行が共有する。
+                    var directoryOpennerCache = new DirectoryOpennerCache(rootPath);
+                    var pending = new List<FileProperty>();
+                    var builtCount = 0;
+                    var maxDirectoryDepth = 0;
+                    var flushStopwatch = Stopwatch.StartNew();
 
-                    //NOTE:以前はファイル1件ごとに Dispatcher.Invoke して UI スレッド上で FileProperty を構築していたため、
-                    //     1件につき同期マーシャリング1回 + 進捗更新の Dispatcher ポストが発生していた。
-                    //     FileIcon は Freeze 済みでスレッドを跨げるため、構築はこのバックグラウンドスレッドで行い、
-                    //     UI スレッドへの追加のみをバッチにまとめる。
-                    var allFiles = new List<FileProperty>(allFilesString.Count());
-                    var batch = new List<FileProperty>(AddBatchSize);
-
-                    void FlushBatch()
+                    void FlushPending()
                     {
-                        if (batch.Count == 0)
+                        if (pending.Count == 0)
                         {
                             return;
                         }
 
-                        var adding = batch.ToArray();
-                        batch.Clear();
+                        var adding = pending.ToArray();
+                        pending.Clear();
 
-                        Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            foreach (var f in adding)
-                            {
-                                _fileProperties.Add(f);
-                            }
-                        });
+                        Application.Current.Dispatcher.Invoke(() => _fileProperties.AddRange(adding));
+                        SuccessedCount.Value = builtCount;
+                        flushStopwatch.Restart();
                     }
 
-                    foreach (var p in allFilesString)
+                    foreach (var chunk in foundFiles.Chunk(BuildChunkSize))
                     {
-                        FileProperty f = new(p, RootPath.Value);
-                        f.UpdateIsHighlighted(funcIsFileNameMatch, funcIsExtensionTextMatch, funcIsDirectoryNamesMatch, funcIsLastWriteTimeMatch, funcIsModifiedTimeMatch);
-
-                        allFiles.Add(f);
-                        batch.Add(f);
-
-                        if (batch.Count >= AddBatchSize)
+                        var built = chunk.AsParallel().AsOrdered().Select(file =>
                         {
-                            FlushBatch();
-                            SuccessedCount.Value = allFiles.Count;
+                            FileProperty f = new(file.Path, file.LastWriteTime, directoryOpennerCache);
+                            f.UpdateIsHighlighted(funcIsFileNameMatch, funcIsExtensionTextMatch, funcIsDirectoryNamesMatch, funcIsLastWriteTimeMatch, funcIsModifiedTimeMatch);
+                            return f;
+                        }).ToArray();
+
+                        foreach (var f in built)
+                        {
+                            _filePropertiesByPath[f.FilePath] = f;
+                            maxDirectoryDepth = Math.Max(maxDirectoryDepth, f.DirectoryDepth);
+                        }
+
+                        pending.AddRange(built);
+                        builtCount += built.Length;
+
+                        if (flushStopwatch.Elapsed >= AddFlushInterval)
+                        {
+                            FlushPending();
                         }
                     }
 
-                    FlushBatch();
-                    SuccessedCount.Value = allFiles.Count;
+                    FlushPending();
+                    SuccessedCount.Value = builtCount;
 
                     Debug.WriteLine($"3.{DateTime.Now.ToString()}");
 
+                    //NOTE:以前は列ごとに全行を走査していた(20回)。構築時に記録した最大の深さから一度に決める。
                     Application.Current.Dispatcher.Invoke(() =>
                     {
                         foreach (int index in Enumerable.Range(0, ConstantObject.MaxDirectoryColumnCount))
                         {
-                            IsDirectoriesExists[index].Value = allFiles.Any(f => !string.IsNullOrEmpty(f.Directories.Skip(index)?.FirstOrDefault()?.Name ?? string.Empty));
+                            IsDirectoriesExists[index].Value = index < maxDirectoryDepth;
                         }
                     });
 
@@ -505,41 +574,31 @@ namespace FlatFileList
             {
                 _cancellationTokenSource = new();
                 var token = _cancellationTokenSource.Token;
-                _refreshingLastSaveTimesTask = new(()=> 
+
+                //NOTE:一覧は UI スレッド上のコレクションのため、ここ(UI スレッド)でスナップショットを取ってから並列取得する。
+                //     直近に通知された表示中の行を最初に優先させ、以降はスクロールのたびに優先させる。
+                var loader = new LastSaveTimeLoader(_fileProperties);
+                loader.Prioritize(_lastVisibleItems);
+                _lastSaveTimeLoader = loader;
+
+                _refreshingLastSaveTimesTask = new(()=>
                     {
                         IsLastSaveTimeRefreshing.Value = true;
-                        using var backgroundTaskRaunning = Disposable.Create(() => IsLastSaveTimeRefreshing.Value = false);
+                        using var backgroundTaskRaunning = Disposable.Create(() =>
+                        {
+                            if (ReferenceEquals(_lastSaveTimeLoader, loader))
+                            {
+                                _lastSaveTimeLoader = null;
+                            }
+                            IsLastSaveTimeRefreshing.Value = false;
+                        });
 
                         SuccessedCount.Value = 0;
 
-                        Thread t = new(() =>
-                        {
-                            //NOTE:Shell.Application と Folder の生成は高コストなため、走査全体で1つの reader を使い回す。
-                            using ShellPropertyReader reader = new();
-
-                            var count = 0;
-                            foreach (var f in _fileProperties)
-                            {
-                                if (token.IsCancellationRequested)
-                                    break;
-
-                                count++;
-                                //NOTE:SuccessedCount は ReactiveProperty のため書き込みごとに Dispatcher へポストされ、
-                                //     派生する ProgressPer/ProgressBarText/WindowProgressState も再計算される。
-                                //     1件ごとに更新すると UI スレッドが飽和してスクロールが止まるため間引く。
-                                if (count % ProgressReportInterval == 0)
-                                {
-                                    SuccessedCount.Value = count;
-                                }
-
-                                f.UpdateModifiedTime(IsIgnoreGettingLastSaveTime.Value, reader);
-                            }
-
-                            SuccessedCount.Value = count;
-                        });
-                        t.SetApartmentState(ApartmentState.STA);
-                        t.Start();
-                        t.Join();
+                        //NOTE:SuccessedCount は ReactiveProperty のため書き込みごとに Dispatcher へポストされ、
+                        //     派生する ProgressPer/ProgressBarText/WindowProgressState も再計算される。
+                        //     1件ごとに更新すると UI スレッドが飽和してスクロールが止まるため、loader 側で間引いて通知される。
+                        loader.Run(() => IsIgnoreGettingLastSaveTime.Value, count => SuccessedCount.Value = count, token);
                     }, token);
                 _refreshingLastSaveTimesTask.Start();
              }).AddTo(_disposable);
@@ -748,25 +807,20 @@ namespace FlatFileList
         private static string ConvertToCommandlineText(ProcessStartInfo info) => string.Join(" ", info.FileName, info.Arguments);
 
         /// <summary>
-        /// ディレクトリを検索対象に含めるかどうかを判定する述語を生成する。ドット始まり・隠し・システムの各条件で除外する。
+        /// ディレクトリを検索対象に含める(配下を走査する)かどうかを判定する述語を生成する。ドット始まり・隠し・システムの各条件で除外する。
         /// </summary>
         /// <param name="isExcludeDotStartDirectory">ドットで始まるディレクトリを除外するかどうか。</param>
         /// <param name="isExcludeHiddenDirectory">隠しディレクトリを除外するかどうか。</param>
         /// <param name="isExcludeSystemDirectory">システムディレクトリを除外するかどうか。</param>
         /// <returns>対象に含める場合に <see langword="true"/> を返す述語。</returns>
-        private static Func<string, bool> CreateValidatorForDirectory(bool isExcludeDotStartDirectory, bool isExcludeHiddenDirectory, bool isExcludeSystemDirectory)
+        /// <remarks>名前・属性は列挙時の検索データ(<see cref="FileSystemEntry"/>)から取るため、追加のシステム呼び出しは発生しない。</remarks>
+        private static FileSystemEnumerable<FoundFile>.FindPredicate CreateValidatorForDirectory(bool isExcludeDotStartDirectory, bool isExcludeHiddenDirectory, bool isExcludeSystemDirectory)
         {
-            var isDotStartFunc = CreateValidateDotStartFunc(isExcludeDotStartDirectory);
-            var fileAttributes = (isExcludeHiddenDirectory ? FileAttributes.Hidden : 0) | (isExcludeSystemDirectory ? FileAttributes.System : 0);
-            var isFileAttributesFunc = CreateValidateFileAttributesFunc(isExcludeHiddenDirectory || isExcludeSystemDirectory, fileAttributes);
+            var excludeAttributes = (isExcludeHiddenDirectory ? FileAttributes.Hidden : 0) | (isExcludeSystemDirectory ? FileAttributes.System : 0);
 
-            return directoryPath =>
-            {
-                var directoryName = Path.GetFileName(directoryPath);
-                var attributes = new DirectoryInfo(directoryPath).Attributes;
-
-                return !isDotStartFunc(directoryName) && !isFileAttributesFunc(attributes);
-            };
+            return (ref FileSystemEntry entry) =>
+                !(isExcludeDotStartDirectory && entry.FileName.StartsWith('.'))
+                && (entry.Attributes & excludeAttributes) == 0;
         }
 
         /// <summary>
@@ -775,43 +829,21 @@ namespace FlatFileList
         /// <param name="isExcludeDotStartFile">ドットで始まるファイルを除外するかどうか。</param>
         /// <param name="isExcludeHiddenFile">隠しファイルを除外するかどうか。</param>
         /// <param name="isExcludeSystemFile">システムファイルを除外するかどうか。</param>
-        /// <param name="extensionTexts">除外する拡張子(先頭にドットを含む)の一覧。</param>
+        /// <param name="extensionTexts">除外する拡張子(先頭にドットを含む)の一覧。大文字小文字は区別しない。</param>
         /// <returns>対象に含める場合に <see langword="true"/> を返す述語。</returns>
-        private static Func<string, bool> CreateValidatorForFile(bool isExcludeDotStartFile, bool isExcludeHiddenFile, bool isExcludeSystemFile, IEnumerable<string> extensionTexts)
+        /// <remarks>
+        /// 除外拡張子は生成時に <see cref="HashSet{T}"/> へ確定させ、ファイルごとに元の一覧を評価し直さない。
+        /// 拡張子は代替ルックアップで文字列を生成せずに照合する。
+        /// </remarks>
+        private static FileSystemEnumerable<FoundFile>.FindPredicate CreateValidatorForFile(bool isExcludeDotStartFile, bool isExcludeHiddenFile, bool isExcludeSystemFile, IEnumerable<string> extensionTexts)
         {
-            var isDotStartFunc = CreateValidateDotStartFunc(isExcludeDotStartFile);
-            var fileAttributes = (isExcludeHiddenFile ? FileAttributes.Hidden : 0) | (isExcludeSystemFile ? FileAttributes.System : 0);
-            var isFileAttributesFunc = CreateValidateFileAttributesFunc(isExcludeHiddenFile || isExcludeSystemFile, fileAttributes);
+            var excludeAttributes = (isExcludeHiddenFile ? FileAttributes.Hidden : 0) | (isExcludeSystemFile ? FileAttributes.System : 0);
+            var excludeExtensions = new HashSet<string>(extensionTexts, StringComparer.OrdinalIgnoreCase).GetAlternateLookup<ReadOnlySpan<char>>();
 
-            return filePath =>
-            {
-                var fileName = Path.GetFileName(filePath);
-                var attributes = File.GetAttributes(filePath);
-                var extension = Path.GetExtension(filePath);
-
-                return !isDotStartFunc(fileName) && !isFileAttributesFunc(attributes) && !extensionTexts.Contains(extension);
-            };
-        }
-
-        /// <summary>
-        /// ファイル名・ディレクトリ名がドット始まりかどうかを判定する述語を生成する。判定不要時は常に <see langword="false"/> を返す。
-        /// </summary>
-        /// <param name="needsValidate">ドット始まりの判定を行うかどうか。</param>
-        /// <returns>ドットで始まる場合に <see langword="true"/> を返す述語。</returns>
-        public static Func<string, bool> CreateValidateDotStartFunc(bool needsValidate)
-        {
-            return needsValidate ? fileName => fileName.StartsWith(".") : _ => false;
-        }
-
-        /// <summary>
-        /// 指定した <see cref="FileAttributes"/> のいずれかを持つかどうかを判定する述語を生成する。判定不要時は常に <see langword="false"/> を返す。
-        /// </summary>
-        /// <param name="needsValidate">属性の判定を行うかどうか。</param>
-        /// <param name="fileAttributes">判定対象の属性(隠し・システムなど)。</param>
-        /// <returns>指定属性を含む場合に <see langword="true"/> を返す述語。</returns>
-        public static Func<FileAttributes, bool> CreateValidateFileAttributesFunc(bool needsValidate, FileAttributes fileAttributes)
-        {
-            return needsValidate ? attributes => (attributes & fileAttributes) > 0 : _ => false;
+            return (ref FileSystemEntry entry) =>
+                !(isExcludeDotStartFile && entry.FileName.StartsWith('.'))
+                && (entry.Attributes & excludeAttributes) == 0
+                && !excludeExtensions.Contains(Path.GetExtension(entry.FileName));
         }
 
         /// <summary>
@@ -829,11 +861,13 @@ namespace FlatFileList
 
             if(useRegex)
             {
-                Regex r = new(searchText);
+                //NOTE:全行に対して照合するため、コンパイル済みにして1件あたりの照合を速くする。
+                Regex r = new(searchText, RegexOptions.Compiled);
                 return r.IsMatch;
             }
 
-            return target => target.Contains(searchText, StringComparison.CurrentCultureIgnoreCase);
+            //NOTE:カルチャ依存の比較は1件あたりのコストが高いため、序数比較(大文字小文字無視)にする。
+            return target => target.Contains(searchText, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -1009,7 +1043,7 @@ namespace FlatFileList
 
             foreach (int index in Enumerable.Range(0, ConstantObject.MaxDirectoryColumnCount))
             {
-                IsDirectoriesExists[index].Value = _fileProperties.Any(f => !string.IsNullOrEmpty(f.Directories.Skip(index)?.FirstOrDefault()?.Name ?? string.Empty));
+                IsDirectoriesExists[index].Value = _fileProperties.Any(f => index < f.DirectoryDepth);
             }
         }
 
