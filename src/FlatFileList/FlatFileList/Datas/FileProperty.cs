@@ -170,9 +170,9 @@ namespace FlatFileList.Datas
             FileIcon = FilePath.FileIconToBitmapSource();
 
             //NOTE:文字列置換ではルートの表記揺れ(末尾の「\」や大文字小文字)で相対パスが崩れるため、パスとして相対化する。
-            //     従来の表記(先頭に「\」を1つ付けた相対パス)に合わせる。
+            //     表記は先頭に「\」を1つ付けた相対パス(例: \dir\file.txt)とする。
             var relativeFilePath = $"\\{Path.GetRelativePath(searchDirectoryPath, FilePath)}";
-            RelativeFilePath = $"\\{relativeFilePath}";
+            RelativeFilePath = relativeFilePath;
             _relativeDirectoryPath = Path.GetDirectoryName(relativeFilePath) ?? string.Empty;
 
             var directories = GetDirectories(relativeFilePath);

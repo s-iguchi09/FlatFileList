@@ -323,7 +323,10 @@ namespace FlatFileList
             _watcher.IncludeSubdirectories = true;
 
             //NOTE:スクロール中は連続して通知されるため、止まってから表示中の行を前回保存日時の取得に割り込ませる。
+            //     Throttle の通知はタイマースレッドで届くため、UI スレッドへ移して検索結果のクリアと直列化する
+            //     (確認後・代入前にクリアされて旧一覧の行を書き戻すことを防ぐ)。
             NotifyVisibleItems.Throttle(VisibleItemsThrottle)
+                              .ObserveOnUIDispatcher()
                               .Subscribe(items =>
                               {
                                   //NOTE:待機中に検索結果がクリアされると旧一覧の行が届くため、現在の一覧に登録されている行だけを優先対象にする。
