@@ -53,15 +53,25 @@ namespace FlatFileList.Utilities.Shell32
         public static bool IsSupported(string filePath) => _supportedExtensionsLookup.Contains(Path.GetExtension(filePath.AsSpan()));
 
         /// <summary>
-        /// 指定ファイルの前回保存日時を取得する。取得対象外の拡張子や、値を持たない・読み出せない場合は <see langword="null"/>。
+        /// 指定ファイルの前回保存日時の取得を試みる。
         /// </summary>
         /// <param name="filePath">対象ファイルの絶対パス。</param>
-        /// <returns>前回保存日時(ローカル時刻・分単位に切り捨て)。取得できない場合は <see langword="null"/>。</returns>
-        public static DateTime? Read(string filePath)
+        /// <param name="dateSaved">前回保存日時(ローカル時刻・分単位に切り捨て)。取得対象外の拡張子や、値を持たない場合は <see langword="null"/>。</param>
+        /// <returns>
+        /// 読み出しができた場合(値がない場合を含む)は <see langword="true"/>。
+        /// 保存の途中でファイルがロック・置き換え中であるなど、読み出し自体に失敗した場合は <see langword="false"/>。
+        /// </returns>
+        /// <remarks>
+        /// Office は一時ファイルへ書き出してから置き換える形で保存するため、保存直後の変更通知の時点では
+        /// 一時的に読み出しに失敗することがある。失敗と「値なし」を区別し、呼び出し元が以前の値を保持・再試行できるようにする。
+        /// </remarks>
+        public static bool TryRead(string filePath, out DateTime? dateSaved)
         {
+            dateSaved = null;
+
             if (!IsSupported(filePath))
             {
-                return null;
+                return true;
             }
 
             IPropertyStore? store = null;
@@ -71,7 +81,7 @@ namespace FlatFileList.Utilities.Shell32
                 var interfaceId = _propertyStoreInterfaceId;
                 if (SHGetPropertyStoreFromParsingName(filePath, IntPtr.Zero, GPS_DEFAULT, ref interfaceId, out store) < 0 || store is null)
                 {
-                    return null;
+                    return false;
                 }
 
                 var key = new PropertyKey { FormatId = _summaryInformationFormatId, PropertyId = DateSavedPropertyId };
@@ -79,14 +89,20 @@ namespace FlatFileList.Utilities.Shell32
 
                 try
                 {
-                    if (store.GetValue(ref key, out value) < 0 || value.VarType != VT_FILETIME)
+                    if (store.GetValue(ref key, out value) < 0)
                     {
-                        return null;
+                        return false;
+                    }
+
+                    if (value.VarType != VT_FILETIME)
+                    {
+                        return true;
                     }
 
                     var local = DateTime.FromFileTimeUtc(value.FileTime).ToLocalTime();
                     //NOTE:従来の GetDetailsOf の表示文字列は分単位だったため、比較フィルターの挙動を揃えるために切り捨てる。
-                    return new DateTime(local.Year, local.Month, local.Day, local.Hour, local.Minute, 0, DateTimeKind.Local);
+                    dateSaved = new DateTime(local.Year, local.Month, local.Day, local.Hour, local.Minute, 0, DateTimeKind.Local);
+                    return true;
                 }
                 finally
                 {
@@ -95,7 +111,7 @@ namespace FlatFileList.Utilities.Shell32
             }
             catch (Exception ex) when (ex is COMException or ArgumentException or ArgumentOutOfRangeException)
             {
-                return null;
+                return false;
             }
             finally
             {

@@ -131,6 +131,12 @@ namespace FlatFileList
         /// <summary>ファイル変更通知をまとめる間隔(1回の保存で複数回通知されるため)。</summary>
         private static readonly TimeSpan WatcherBufferInterval = TimeSpan.FromMilliseconds(500);
 
+        /// <summary>ファイル変更後に前回保存日時の読み出しに失敗した場合の試行回数(初回を含む)。</summary>
+        private const int WatcherRetryCount = 5;
+
+        /// <summary>ファイル変更後に前回保存日時の読み出しを再試行する間隔。</summary>
+        private static readonly TimeSpan WatcherRetryInterval = TimeSpan.FromSeconds(1);
+
         public CollectionViewSource FileProperties { get; }
         protected RangeObservableCollection<FileProperty> _fileProperties { get; } = [];
 
@@ -302,7 +308,19 @@ namespace FlatFileList
                             foreach (var item in items)
                             {
                                 item.UpdateLastWriteTime();
-                                item.UpdateModifiedTime(isIgnoreGettingLastSaveTime);
+                            }
+
+                            //NOTE:Office は一時ファイル経由で保存するため、通知直後は置き換え中で読み出しに失敗することがある。
+                            //     失敗した行は以前の値を保持したまま、間隔を空けて再試行する。
+                            var pending = items;
+                            for (var attempt = 0; attempt < WatcherRetryCount && pending.Count > 0; attempt++)
+                            {
+                                if (attempt > 0)
+                                {
+                                    Thread.Sleep(WatcherRetryInterval);
+                                }
+
+                                pending = pending.Where(item => !item.UpdateModifiedTime(isIgnoreGettingLastSaveTime)).ToList();
                             }
                         })
                         { IsBackground = true };

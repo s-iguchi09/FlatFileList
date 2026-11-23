@@ -194,16 +194,24 @@ namespace FlatFileList.Datas
 
         /// <summary>
         /// プロパティシステムから前回保存日時を取得し、<see cref="ModifiedTime"/> を更新する。
+        /// 読み出し自体に失敗した場合(保存途中でファイルが置き換え中など)は、以前の値を保持する。
         /// </summary>
         /// <param name="isIgnoreGettingLastSaveTime"><see langword="true"/> の場合は取得を行わず更新をスキップする。</param>
-        public void UpdateModifiedTime(bool isIgnoreGettingLastSaveTime)
+        /// <returns>取得できた(値なしを含む)、または取得不要だった場合は <see langword="true"/>。読み出しに失敗した場合は <see langword="false"/>。</returns>
+        public bool UpdateModifiedTime(bool isIgnoreGettingLastSaveTime)
         {
             if (isIgnoreGettingLastSaveTime)
             {
-                return;
+                return true;
             }
 
-            ModifiedTime = DocumentDateSavedReader.Read(FilePath);
+            if (!DocumentDateSavedReader.TryRead(FilePath, out var dateSaved))
+            {
+                return false;
+            }
+
+            ModifiedTime = dateSaved;
+            return true;
         }
 
         /// <summary>
