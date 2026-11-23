@@ -36,6 +36,8 @@ namespace FlatFileList.Datas
         private int _modifiedTimeLoadState;
         /// <summary>前回保存日時の読み出しから反映までを直列化するロック(一括取得とファイル監視の競合を防ぐ)。</summary>
         private readonly Lock _modifiedTimeLock = new();
+        /// <summary>更新日時の読み出しから反映までを直列化するロック(監視の複数バッチの競合を防ぐ)。前回保存日時の取得を待たないよう専用にする。</summary>
+        private readonly Lock _lastWriteTimeLock = new();
 
         /// <summary>ファイルの更新日時(ミリ秒精度)。</summary>
         public DateTime LastWriteTime
@@ -193,14 +195,20 @@ namespace FlatFileList.Datas
         /// </remarks>
         public bool UpdateLastWriteTime()
         {
-            var fileInfo = new FileInfo(FilePath);
-            if (!fileInfo.Exists)
+            //NOTE:監視の後続バッチと前回バッチの再試行が同じ行を同時に処理すると、先に読んだ古い値が
+            //     後から読んだ新しい値を上書きすることがある。読み出しから反映までを行ごとに直列化する。
+            //     (FileInfo の Exists と LastWriteTime は同じ属性キャッシュを使うため、生成から含める)
+            lock (_lastWriteTimeLock)
             {
-                return false;
-            }
+                var fileInfo = new FileInfo(FilePath);
+                if (!fileInfo.Exists)
+                {
+                    return false;
+                }
 
-            LastWriteTime = TruncateToMilliseconds(fileInfo.LastWriteTime);
-            return true;
+                LastWriteTime = TruncateToMilliseconds(fileInfo.LastWriteTime);
+                return true;
+            }
         }
 
         /// <summary>

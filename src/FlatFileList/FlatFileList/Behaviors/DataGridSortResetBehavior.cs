@@ -3,6 +3,7 @@ using Microsoft.Xaml.Behaviors;
 using System.ComponentModel;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 
 namespace FlatFileList.Behaviors
 {
@@ -14,9 +15,12 @@ namespace FlatFileList.Behaviors
     /// 既定のソート(SortDescription)は比較のたびにプロパティパスをリフレクションで解決するため、
     /// 列の SortMemberPath に対応する型付き比較器(<see cref="FilePropertyComparer"/>)を
     /// <see cref="ListCollectionView.CustomSort"/> に設定して高速にソートする。対応しない列は既定のソートに任せる。
+    /// Shift+クリックでは既定のソートと同様に、既存のソートキーを保ったまま列をキーに追加・変更・解除する。
     /// </remarks>
     public class DataGridSortResetBehavior : Behavior<DataGrid>
     {
+        /// <summary>型付き比較器でソートしている列と並び順(優先順)。</summary>
+        private readonly List<(DataGridColumn Column, ListSortDirection Direction)> _sortKeys = [];
 
         /// <summary>
         /// ビヘイビアがアタッチされた際に、<see cref="DataGrid"/> のソートイベントを購読する。
@@ -45,9 +49,30 @@ namespace FlatFileList.Behaviors
                 _ => null,
             };
 
-            var comparer = nextDirection is { } direction ? FilePropertyComparer.Create(e.Column.SortMemberPath, direction) : null;
+            var isAddingKey = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
 
-            if (nextDirection is not null && comparer is null)
+            // Shift+クリックは既存のキーを保ち、この列のキーだけを追加・変更・解除する。通常のクリックはこの列だけにする
+            var nextKeys = isAddingKey ? new List<(DataGridColumn Column, ListSortDirection Direction)>(_sortKeys) : [];
+            var keyIndex = nextKeys.FindIndex(key => key.Column == e.Column);
+            if (nextDirection is { } direction)
+            {
+                if (keyIndex >= 0)
+                {
+                    nextKeys[keyIndex] = (e.Column, direction);
+                }
+                else
+                {
+                    nextKeys.Add((e.Column, direction));
+                }
+            }
+            else if (keyIndex >= 0)
+            {
+                nextKeys.RemoveAt(keyIndex);
+            }
+
+            var comparer = FilePropertyComparer.Create(nextKeys.Select(key => (key.Column.SortMemberPath, key.Direction)).ToList());
+
+            if (nextKeys.Count > 0 && comparer is null)
             {
                 // 型付き比較器に対応しない列は、既定のソート処理に任せる
                 //NOTE:CustomSort の setter は null の再代入でも SortDescriptions を消去するため、
@@ -55,6 +80,7 @@ namespace FlatFileList.Behaviors
                 if (listColView.CustomSort is not null)
                 {
                     listColView.CustomSort = null;
+                    _sortKeys.Clear();
                 }
                 return;
             }
@@ -64,11 +90,14 @@ namespace FlatFileList.Behaviors
 
             foreach (var column in AssociatedObject.Columns)
             {
-                if (column != e.Column)
+                if (column != e.Column && !nextKeys.Exists(key => key.Column == column))
                 {
                     column.SortDirection = null;
                 }
             }
+
+            _sortKeys.Clear();
+            _sortKeys.AddRange(nextKeys);
 
             AssociatedObject.Items.SortDescriptions.Clear();
             //NOTE:CustomSort を設定するとビューが再ソートされる。null で元の並び順に戻る。

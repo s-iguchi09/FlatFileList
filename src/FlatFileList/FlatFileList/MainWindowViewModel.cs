@@ -152,8 +152,15 @@ namespace FlatFileList
         /// <summary>
         /// 検索中に変更通知を受けたが、まだ一覧に登録されていなかったファイルのパス。検索中以外は <see langword="null"/>。
         /// 列挙後・行の構築前に保存されたファイルの更新日時を、検索完了後に取り直すために記録する。
+        /// 読み書きは <see cref="_changedPathsLock"/> の中でのみ行う。
         /// </summary>
-        private volatile ConcurrentDictionary<string, byte>? _changedPathsDuringSearch;
+        private HashSet<string>? _changedPathsDuringSearch;
+
+        /// <summary>
+        /// 監視側の「索引の参照と変更パスの記録」と、検索側の「記録の回収」を直列化するロック。
+        /// 記録は回収より前に確定するか、回収後であれば索引から行を取得できるため、取りこぼしが起きない。
+        /// </summary>
+        private readonly Lock _changedPathsLock = new();
 
         public ReactivePropertySlim<bool> IsDirectory1Exists { get; } = new(false);
         public ReactivePropertySlim<bool> IsDirectory2Exists { get; } = new(false);
@@ -303,18 +310,20 @@ namespace FlatFileList
                     .Where(events => events.Count > 0)
                     .Subscribe(events =>
                     {
-                        var changedPathsDuringSearch = _changedPathsDuringSearch;
                         var items = new List<FileProperty>();
-                        foreach (var path in events.Select(e => e.FullPath).Distinct(StringComparer.Ordinal))
+                        lock (_changedPathsLock)
                         {
-                            if (_filePropertiesByPath.TryGetValue(path, out var item))
+                            foreach (var path in events.Select(e => e.FullPath).Distinct(StringComparer.Ordinal))
                             {
-                                items.Add(item);
-                            }
-                            else
-                            {
-                                //NOTE:検索中はまだ一覧に登録されていない行があるため、検索完了後に取り直せるよう記録しておく。
-                                changedPathsDuringSearch?.TryAdd(path, 0);
+                                if (_filePropertiesByPath.TryGetValue(path, out var item))
+                                {
+                                    items.Add(item);
+                                }
+                                else
+                                {
+                                    //NOTE:検索中はまだ一覧に登録されていない行があるため、検索完了後に取り直せるよう記録しておく。
+                                    _changedPathsDuringSearch?.Add(path);
+                                }
                             }
                         }
 
@@ -466,7 +475,7 @@ namespace FlatFileList
             Search = CanExecuteOfSearch.ToAsyncReactiveCommand()
                 .WithSubscribe(async () =>
             {
-                using var finalize = Disposable.Create(() => { StatusText.Value = string.Empty; IsSearching.Value = false; IsIndeterminate.Value = false; _changedPathsDuringSearch = null; });
+                using var finalize = Disposable.Create(() => { StatusText.Value = string.Empty; IsSearching.Value = false; IsIndeterminate.Value = false; lock (_changedPathsLock) { _changedPathsDuringSearch = null; } });
 
                 clearSearchResults();
 
@@ -478,8 +487,10 @@ namespace FlatFileList
 
                 //NOTE:列挙後・行の構築前に保存されたファイルも検出できるよう、監視は列挙より前に開始する。
                 //     まだ一覧にない行への通知はパスを記録し、検索完了後に更新日時を取り直す。
-                var changedPathsDuringSearch = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-                _changedPathsDuringSearch = changedPathsDuringSearch;
+                lock (_changedPathsLock)
+                {
+                    _changedPathsDuringSearch = new HashSet<string>(StringComparer.Ordinal);
+                }
                 _watcher.EnableRaisingEvents = false;
                 _watcher.Path = rootPath;
                 _watcher.EnableRaisingEvents = true;
@@ -570,11 +581,15 @@ namespace FlatFileList
 
                     //NOTE:行は列挙時の更新日時で構築するため、その後に保存されたファイルは古い値のままになる。
                     //     検索中に通知を受けたパスのうち一覧に登録された行だけ、取り直す(変更のないファイルには I/O が発生しない)。
-                    _changedPathsDuringSearch = null;
-                    var changedItems = changedPathsDuringSearch.Keys
-                                                               .Select(path => _filePropertiesByPath.TryGetValue(path, out var item) ? item : null)
-                                                               .OfType<FileProperty>()
-                                                               .ToList();
+                    List<FileProperty> changedItems;
+                    lock (_changedPathsLock)
+                    {
+                        changedItems = (_changedPathsDuringSearch ?? [])
+                                           .Select(path => _filePropertiesByPath.TryGetValue(path, out var item) ? item : null)
+                                           .OfType<FileProperty>()
+                                           .ToList();
+                        _changedPathsDuringSearch = null;
+                    }
                     if (changedItems.Count > 0)
                     {
                         //NOTE:前回保存日時はこの後の一括取得で読み出すため、ここでは更新日時だけを取り直す。

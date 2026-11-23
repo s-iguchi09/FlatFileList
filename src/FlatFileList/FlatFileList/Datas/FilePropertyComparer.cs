@@ -19,21 +19,16 @@ namespace FlatFileList.Datas
         /// <summary>フォルダー列の SortMemberPath の接尾辞。</summary>
         private const string DirectorySortMemberSuffix = ".Name";
 
-        /// <summary>昇順の比較処理。</summary>
-        private readonly Comparison<FileProperty> _comparison;
-
-        /// <summary>降順にするかどうか(1: 昇順, -1: 降順)。</summary>
-        private readonly int _sign;
+        /// <summary>優先順に並べた比較キー(昇順の比較処理と、並び順の符号 1: 昇順 / -1: 降順)。</summary>
+        private readonly (Comparison<FileProperty> Comparison, int Sign)[] _keys;
 
         /// <summary>
-        /// 比較処理と並び順を指定してインスタンスを生成する。
+        /// 比較キーを指定してインスタンスを生成する。
         /// </summary>
-        /// <param name="comparison">昇順の比較処理。</param>
-        /// <param name="direction">並び順。</param>
-        private FilePropertyComparer(Comparison<FileProperty> comparison, ListSortDirection direction)
+        /// <param name="keys">優先順に並べた比較キー。</param>
+        private FilePropertyComparer((Comparison<FileProperty> Comparison, int Sign)[] keys)
         {
-            _comparison = comparison;
-            _sign = direction == ListSortDirection.Ascending ? 1 : -1;
+            _keys = keys;
         }
 
         /// <summary>
@@ -43,11 +38,46 @@ namespace FlatFileList.Datas
         /// <param name="direction">並び順。</param>
         /// <returns>比較器。対応しない場合は <see langword="null"/>。</returns>
         public static FilePropertyComparer? Create(string? sortMemberPath, ListSortDirection direction)
+            => Create([(sortMemberPath, direction)]);
+
+        /// <summary>
+        /// 複数列のソート(Shift+クリック)用に、先頭のキーから順に比較する比較器を生成する。
+        /// いずれかの SortMemberPath に対応しない場合、またはキーが無い場合は <see langword="null"/> を返す。
+        /// </summary>
+        /// <param name="sortKeys">優先順に並べた列の SortMemberPath と並び順。</param>
+        /// <returns>比較器。生成できない場合は <see langword="null"/>。</returns>
+        public static FilePropertyComparer? Create(IReadOnlyList<(string? SortMemberPath, ListSortDirection Direction)> sortKeys)
+        {
+            if (sortKeys.Count == 0)
+            {
+                return null;
+            }
+
+            var keys = new (Comparison<FileProperty> Comparison, int Sign)[sortKeys.Count];
+            for (var index = 0; index < sortKeys.Count; index++)
+            {
+                if (CreateComparison(sortKeys[index].SortMemberPath) is not { } comparison)
+                {
+                    return null;
+                }
+
+                keys[index] = (comparison, sortKeys[index].Direction == ListSortDirection.Ascending ? 1 : -1);
+            }
+
+            return new FilePropertyComparer(keys);
+        }
+
+        /// <summary>
+        /// 列の SortMemberPath に対応する昇順の比較処理を返す。対応しないパスの場合は <see langword="null"/> を返す。
+        /// </summary>
+        /// <param name="sortMemberPath">列の SortMemberPath。</param>
+        /// <returns>昇順の比較処理。対応しない場合は <see langword="null"/>。</returns>
+        private static Comparison<FileProperty>? CreateComparison(string? sortMemberPath)
         {
             //NOTE:フォルダー名は従来の SortDescription(既定の比較 = 現在のカルチャ)と同じ並びになるよう CurrentCulture で比較する。
             var stringComparer = StringComparer.CurrentCulture;
 
-            Comparison<FileProperty>? comparison = sortMemberPath switch
+            return sortMemberPath switch
             {
                 //NOTE:ファイル名はエクスプローラーと同じ並び(数字を数値として比較。「file2」が「file10」より前)にする。
                 nameof(FileProperty.FileName) => (x, y) => ExplorerStringComparer.Instance.Compare(x.FileName, y.FileName),
@@ -57,8 +87,6 @@ namespace FlatFileList.Datas
                     ? (x, y) => stringComparer.Compare(x.Directories[index].Name, y.Directories[index].Name)
                     : null,
             };
-
-            return comparison is null ? null : new FilePropertyComparer(comparison, direction);
         }
 
         /// <summary>
@@ -74,7 +102,16 @@ namespace FlatFileList.Datas
                 return 0;
             }
 
-            return _sign * _comparison(fx, fy);
+            foreach (var (comparison, sign) in _keys)
+            {
+                var result = comparison(fx, fy);
+                if (result != 0)
+                {
+                    return sign * result;
+                }
+            }
+
+            return 0;
         }
 
         /// <summary>
