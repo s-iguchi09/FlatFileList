@@ -12,8 +12,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:sys="clr-namespace:System;assembly=mscorlib"
     Title="{Binding Title.Value}"
-    Width="1000"
-    Height="600"
+    Width="1280"
+    Height="780"
     d:DataContext="{d:DesignInstance local:MainWindowViewModelDesignMode,
                                      IsDesignTimeCreatable=True}"
     d:DesignHeight="1000"
@@ -335,10 +335,9 @@
         <Grid
             Grid.Row="0"
             HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"
-            IsEnabled="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}">
+            VerticalAlignment="Stretch">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="350" />
+                <ColumnDefinition Width="420" />
                 <ColumnDefinition Width="auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -347,6 +346,7 @@
                 Grid.Column="0"
                 Padding="0,0,12,0"
                 HorizontalAlignment="Stretch"
+                Focusable="False"
                 VerticalScrollBarVisibility="Auto">
                 <Grid HorizontalAlignment="Stretch" Grid.IsSharedSizeScope="True">
                     <Grid.RowDefinitions>
@@ -359,6 +359,7 @@
                     <GroupBox
                         Grid.Row="0"
                         Grid.Column="0"
+                        IsEnabled="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}"
                         Style="{StaticResource GroupBoxStyle}">
                         <GroupBox.Header>
                             <TextBlock Text="検索条件" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
@@ -455,16 +456,15 @@
                                 Grid.Column="1"
                                 Grid.ColumnSpan="4"
                                 IsEnabled="{Binding ExistsFileLists.Value, Converter={StaticResource InvertedBoolConverter}}">
-                                <WrapPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                <!--  縦に6行並ぶとスクロールが必要になるため、フォルダー/ファイルを左右に並べて3行に収める。  -->
+                                <UniformGrid HorizontalAlignment="Stretch" Columns="2">
                                     <CheckBox Content="隠しフォルダー" IsChecked="{Binding IsExcludeHiddenDirectory.Value}" />
-                                    <CheckBox Content="システムフォルダー" IsChecked="{Binding IsExcludeSystemDirectory.Value}" />
-                                    <CheckBox Content=".始まりのフォルダー" IsChecked="{Binding IsExcludeDotStartDirectory.Value}" />
-                                </WrapPanel>
-                                <WrapPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                     <CheckBox Content="隠しファイル" IsChecked="{Binding IsExcludeHiddenFile.Value}" />
+                                    <CheckBox Content="システムフォルダー" IsChecked="{Binding IsExcludeSystemDirectory.Value}" />
                                     <CheckBox Content="システムファイル" IsChecked="{Binding IsExcludeSystemFile.Value}" />
+                                    <CheckBox Content=".始まりのフォルダー" IsChecked="{Binding IsExcludeDotStartDirectory.Value}" />
                                     <CheckBox Content=".始まりのファイル" IsChecked="{Binding IsExcludeDotStartFile.Value}" />
-                                </WrapPanel>
+                                </UniformGrid>
                             </StackPanel>
                             <TextBlock
                                 Grid.Row="3"
@@ -612,6 +612,7 @@
                     <GroupBox
                         Grid.Row="1"
                         Grid.Column="0"
+                        IsEnabled="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}"
                         Style="{StaticResource GroupBoxStyle}">
                         <GroupBox.Header>
                             <TextBlock Text="フィルター条件" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
@@ -1087,9 +1088,11 @@
                             </CheckBox>
                         </Grid>
                     </GroupBox>
+                    <!--  DataGrid を含むため、検索中は IsEnabled ではなくマウス操作の受付だけを止める(無効化すると背景が白くなる)。  -->
                     <GroupBox
                         Grid.Row="2"
                         Grid.Column="0"
+                        IsHitTestVisible="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}"
                         Style="{StaticResource GroupBoxStyle}">
                         <GroupBox.Header>
                             <TextBlock Text="起動アプリ" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
@@ -1186,7 +1189,11 @@
                 </Grid>
             </ScrollViewer>
             <GridSplitter Grid.Column="1" HorizontalAlignment="Center" />
-            <Grid Grid.Row="0" Grid.Column="2">
+            <!--  Fluent の DataGrid は無効化すると背景が白に切り替わるため、検索中は IsEnabled ではなくマウス操作の受付だけを止める。  -->
+            <Grid
+                Grid.Row="0"
+                Grid.Column="2"
+                IsHitTestVisible="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="auto" />
                     <ColumnDefinition Width="*" />
