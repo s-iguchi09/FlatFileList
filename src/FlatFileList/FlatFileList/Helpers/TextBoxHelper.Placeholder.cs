@@ -229,6 +229,12 @@ namespace FlatFileList.Helpers
 
                     text.MaxTextWidth = System.Math.Max(part.ActualWidth - renderingOffset.X, 10);
                     text.MaxTextHeight = System.Math.Max(part.ActualHeight, 10);
+
+                    //NOTE:入力文字は縦方向に中央揃えで表示されるため、プレースホルダーも入力欄の高さの中央に揃える。
+                    if (textBoxControl.VerticalContentAlignment == VerticalAlignment.Center && part.ActualHeight > text.Height)
+                    {
+                        renderingOffset.Y = partPosition.Y + (part.ActualHeight - text.Height) / 2 + TextBoxHelper.GetPadding(textBoxControl).Top;
+                    }
                 }
 
                 // Draw the text

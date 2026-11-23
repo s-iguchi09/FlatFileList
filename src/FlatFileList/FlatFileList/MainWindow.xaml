@@ -33,10 +33,17 @@
         <sys:Double x:Key="ButtonSize">32</sys:Double>
         <sys:Double x:Key="ButtonIconSize">30</sys:Double>
         <GridLength x:Key="TextBoxRoundWidth">4</GridLength>
-        <!--  1ボタン + 1ピクセル  -->
-        <Thickness x:Key="OneButtonPadding">0,0,30,0</Thickness>
-        <!--  2ボタン + 1ピクセル  -->
-        <Thickness x:Key="TwoButtonPadding">0,0,61,0</Thickness>
+        <!--  左: 枠と文字の余白 / 右: 1ボタン(ButtonSize) + 角丸分(TextBoxRoundWidth) + 余白。文字がボタンのアイコンに重ならないようにする  -->
+        <Thickness x:Key="OneButtonPadding">6,0,40,0</Thickness>
+        <!--  左: 枠と文字の余白 / 右: 2ボタン(ButtonSize×2) + 角丸分(TextBoxRoundWidth) + 余白  -->
+        <Thickness x:Key="TwoButtonPadding">6,0,72,0</Thickness>
+        <!--  入力欄の左に置く項目名。入力欄と文字が接しないよう右に余白を取る  -->
+        <Style
+            x:Key="LabelTextBlockStyle"
+            BasedOn="{StaticResource {x:Type TextBlock}}"
+            TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
         <Style x:Key="PackIconButtonStyle" TargetType="materialDesign:PackIcon">
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -392,6 +399,7 @@
                             <TextBlock
                                 Grid.Row="0"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="フォルダーパス" />
                             <TextBox
                                 x:Name="TextBoxSearchDirectoryPath"
@@ -440,6 +448,7 @@
                             <TextBlock
                                 Grid.Row="1"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="取得対象外" />
                             <CheckBox
                                 Grid.Row="1"
@@ -450,6 +459,7 @@
                             <TextBlock
                                 Grid.Row="2"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="検索対象外" />
                             <StackPanel
                                 Grid.Row="2"
@@ -469,6 +479,7 @@
                             <TextBlock
                                 Grid.Row="3"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="対象外拡張子" />
                             <ItemsControl
                                 Grid.Row="3"
@@ -537,6 +548,7 @@
                                         <TextBlock
                                             Grid.Row="0"
                                             Grid.Column="0"
+                                            Style="{StaticResource LabelTextBlockStyle}"
                                             Text="拡張子" />
                                         <TextBox
                                             Grid.Row="0"
@@ -640,6 +652,7 @@
                             <TextBlock
                                 Grid.Row="0"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="ファイル名" />
                             <TextBox
                                 Name="TextBoxFilteringFileName"
@@ -683,6 +696,7 @@
                             <TextBlock
                                 Grid.Row="1"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="拡張子" />
                             <TextBox
                                 x:Name="TextBoxFilteringExtension"
@@ -726,6 +740,7 @@
                             <TextBlock
                                 Grid.Row="2"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="フォルダーパス" />
                             <TextBox
                                 x:Name="TextBoxFilteringDirectoryName"
@@ -769,6 +784,7 @@
                             <TextBlock
                                 Grid.Row="3"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="最終更新日時" />
                             <TextBox
                                 x:Name="TextBoxFilteringLastWriteTime"
@@ -918,6 +934,7 @@
                             <TextBlock
                                 Grid.Row="4"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="前回保存日時" />
                             <TextBox
                                 x:Name="TextBoxFilteringModifiedTime"
@@ -1068,6 +1085,7 @@
                                 Grid.Row="5"
                                 Grid.Column="0"
                                 materialDesign:TextBlockAssist.AutoToolTip="True"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="非表示" />
                             <CheckBox
                                 Grid.Row="5"
