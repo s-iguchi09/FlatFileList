@@ -51,6 +51,23 @@ namespace FlatFileList.Behaviors
 
             var isAddingKey = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
 
+            if (nextDirection is null && isAddingKey && listColView.CustomSort is null && _sortKeys.Count == 0)
+            {
+                // 既定のソート(SortDescriptions)中の Shift+クリックによる解除は、この列のキーだけを取り除き、他のキーは残す
+                //NOTE:既定のソート処理は昇順・降順の切り替えしか行わないため、解除はここで行う。
+                e.Handled = true;
+                var sortMemberPath = e.Column.SortMemberPath;
+                for (var index = AssociatedObject.Items.SortDescriptions.Count - 1; index >= 0; index--)
+                {
+                    if (AssociatedObject.Items.SortDescriptions[index].PropertyName == sortMemberPath)
+                    {
+                        AssociatedObject.Items.SortDescriptions.RemoveAt(index);
+                    }
+                }
+                e.Column.SortDirection = null;
+                return;
+            }
+
             // Shift+クリックは既存のキーを保ち、この列のキーだけを追加・変更・解除する。通常のクリックはこの列だけにする
             var nextKeys = isAddingKey ? new List<(DataGridColumn Column, ListSortDirection Direction)>(_sortKeys) : [];
             var keyIndex = nextKeys.FindIndex(key => key.Column == e.Column);
