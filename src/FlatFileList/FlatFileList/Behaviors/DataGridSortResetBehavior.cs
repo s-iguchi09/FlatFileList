@@ -50,7 +50,12 @@ namespace FlatFileList.Behaviors
             if (nextDirection is not null && comparer is null)
             {
                 // 型付き比較器に対応しない列は、既定のソート処理に任せる
-                listColView.CustomSort = null;
+                //NOTE:CustomSort の setter は null の再代入でも SortDescriptions を消去するため、
+                //     Shift+クリックによる複数列ソートの既存キーを残すよう、型付きソート中の場合だけ解除する。
+                if (listColView.CustomSort is not null)
+                {
+                    listColView.CustomSort = null;
+                }
                 return;
             }
 

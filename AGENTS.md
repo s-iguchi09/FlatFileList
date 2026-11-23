@@ -28,13 +28,18 @@ WPF アプリ。AI エージェント（Claude / その他モデル）が開発�
    Visual Studio の MSBuild でもビルドできる。COMReference を再び追加すると `dotnet build` は
    失敗するようになるので、Shell 連携は P/Invoke で書くこと。
 
+   前提: `net10.0-windows` を対象とするため、`dotnet build` には **.NET 10 SDK** が、
+   Visual Studio 経由のビルドには **Visual Studio 2026（18.0）以降**（.NET デスクトップ開発ワークロード）が必要。
+
    ```powershell
    dotnet build "src\FlatFileList\FlatFileList\FlatFileList.csproj" -c Debug -v:minimal
    ```
 
+   `-version "[18.0,)"` で Visual Studio 2026 以降の MSBuild だけを選ぶ（2022 しか無い環境では `$msbuild` が空になり、ビルドコマンドがエラーになる）。
+
    ```powershell
    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-   $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+   $msbuild = & $vswhere -latest -version "[18.0,)" -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
    & $msbuild "src\FlatFileList\FlatFileList\FlatFileList.csproj" -t:Build -p:Configuration=Debug -v:minimal
    ```
 

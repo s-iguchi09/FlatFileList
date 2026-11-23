@@ -137,11 +137,23 @@ namespace FlatFileList
         /// <summary>ファイル変更後に前回保存日時の読み出しを再試行する間隔。</summary>
         private static readonly TimeSpan WatcherRetryInterval = TimeSpan.FromSeconds(1);
 
+        /// <summary>ファイル一覧の表示用ビューのソース。フィルター(ハイライト行のみ表示)とソートはこのビューに対して行う。</summary>
         public CollectionViewSource FileProperties { get; }
+        /// <summary>検索で見つかったファイル一覧の本体。追加は一定時間ごとに <see cref="RangeObservableCollection{T}.AddRange"/> でまとめて行う。</summary>
         protected RangeObservableCollection<FileProperty> _fileProperties { get; } = [];
 
-        /// <summary>ファイルパスから一覧の行を引くための索引(ファイル監視で使用)。</summary>
-        private readonly ConcurrentDictionary<string, FileProperty> _filePropertiesByPath = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>
+        /// ファイルパスから一覧の行を引くための索引(ファイル監視で使用)。
+        /// 大文字小文字を区別するフォルダーでは大文字小文字だけが異なるファイルが別物になるため、完全一致で比較する。
+        /// 列挙結果と監視通知のパスはどちらも正規化した同じ検索ルートから組み立てられるため、表記は一致する。
+        /// </summary>
+        private readonly ConcurrentDictionary<string, FileProperty> _filePropertiesByPath = new(StringComparer.Ordinal);
+
+        /// <summary>
+        /// 検索中に変更通知を受けたが、まだ一覧に登録されていなかったファイルのパス。検索中以外は <see langword="null"/>。
+        /// 列挙後・行の構築前に保存されたファイルの更新日時を、検索完了後に取り直すために記録する。
+        /// </summary>
+        private volatile ConcurrentDictionary<string, byte>? _changedPathsDuringSearch;
 
         public ReactivePropertySlim<bool> IsDirectory1Exists { get; } = new(false);
         public ReactivePropertySlim<bool> IsDirectory2Exists { get; } = new(false);
@@ -291,41 +303,22 @@ namespace FlatFileList
                     .Where(events => events.Count > 0)
                     .Subscribe(events =>
                     {
-                        var items = events.Select(e => e.FullPath)
-                                          .Distinct(StringComparer.OrdinalIgnoreCase)
-                                          .Select(path => _filePropertiesByPath.TryGetValue(path, out var item) ? item : null)
-                                          .OfType<FileProperty>()
-                                          .ToList();
-
-                        if (items.Count == 0)
+                        var changedPathsDuringSearch = _changedPathsDuringSearch;
+                        var items = new List<FileProperty>();
+                        foreach (var path in events.Select(e => e.FullPath).Distinct(StringComparer.Ordinal))
                         {
-                            return;
+                            if (_filePropertiesByPath.TryGetValue(path, out var item))
+                            {
+                                items.Add(item);
+                            }
+                            else
+                            {
+                                //NOTE:検索中はまだ一覧に登録されていない行があるため、検索完了後に取り直せるよう記録しておく。
+                                changedPathsDuringSearch?.TryAdd(path, 0);
+                            }
                         }
 
-                        var isIgnoreGettingLastSaveTime = IsIgnoreGettingLastSaveTime.Value;
-                        Thread t = new(() =>
-                        {
-                            foreach (var item in items)
-                            {
-                                item.UpdateLastWriteTime();
-                            }
-
-                            //NOTE:Office は一時ファイル経由で保存するため、通知直後は置き換え中で読み出しに失敗することがある。
-                            //     失敗した行は以前の値を保持したまま、間隔を空けて再試行する。
-                            var pending = items;
-                            for (var attempt = 0; attempt < WatcherRetryCount && pending.Count > 0; attempt++)
-                            {
-                                if (attempt > 0)
-                                {
-                                    Thread.Sleep(WatcherRetryInterval);
-                                }
-
-                                pending = pending.Where(item => !item.UpdateModifiedTime(isIgnoreGettingLastSaveTime)).ToList();
-                            }
-                        })
-                        { IsBackground = true };
-                        t.SetApartmentState(ApartmentState.STA);
-                        t.Start();
+                        StartUpdatingChangedItems(items, IsIgnoreGettingLastSaveTime.Value);
                     }).AddTo(_disposable);
             _watcher.IncludeSubdirectories = true;
 
@@ -333,7 +326,10 @@ namespace FlatFileList
             NotifyVisibleItems.Throttle(VisibleItemsThrottle)
                               .Subscribe(items =>
                               {
-                                  var visibleItems = items.OfType<FileProperty>().ToList();
+                                  //NOTE:待機中に検索結果がクリアされると旧一覧の行が届くため、現在の一覧に登録されている行だけを優先対象にする。
+                                  var visibleItems = items.OfType<FileProperty>()
+                                                          .Where(item => _filePropertiesByPath.TryGetValue(item.FilePath, out var current) && ReferenceEquals(current, item))
+                                                          .ToList();
                                   _lastVisibleItems = visibleItems;
                                   _lastSaveTimeLoader?.Prioritize(visibleItems);
                               })
@@ -402,7 +398,6 @@ namespace FlatFileList
                 {
                     Func<string, bool> funcIsFileNameMatch = CreateIsMatchSingleFunc(IsRegexFileNameSearchEnabled.Value, FilteringFileNameText.Value);
                     Func<string, bool> funcIsExtensionTextMatch = CreateIsMatchSingleFunc(IsRegexExtensionTextSearchEnabled.Value, FilteringExtensionText.Value);
-                    Func<string, bool> funcIsDirectoryNameMatch = CreateIsMatchSingleFunc(IsRegexDirectoryNameSearchEnabled.Value, FilteringDirectoryNameText.Value);
                     Func<DateTime?, bool> funcIsLastWriteTimeMatch = CreateIsMatchDatetimeFunc(FilteringLastWriteTimeComparisonConditionType.Value, FilteringLastWriteTime.Value);
                     Func<DateTime?, bool> funcIsModifiedTimeMatch = CreateIsMatchDatetimeFunc(FilteringModifiedTimeComparisonConditionType.Value, FilteringModifiedTime.Value);
                     Func<string, bool> funcIsDirectoryNamesMatch = CreateIsMatchSingleFunc(IsRegexDirectoryNameSearchEnabled.Value, FilteringDirectoryNameText.Value);
@@ -468,16 +463,23 @@ namespace FlatFileList
             Search = CanExecuteOfSearch.ToAsyncReactiveCommand()
                 .WithSubscribe(async () =>
             {
-                using var finalize = Disposable.Create(() => { StatusText.Value = string.Empty; IsSearching.Value = false; IsIndeterminate.Value = false; _watcher.EnableRaisingEvents = true;});
+                using var finalize = Disposable.Create(() => { StatusText.Value = string.Empty; IsSearching.Value = false; IsIndeterminate.Value = false; _changedPathsDuringSearch = null; });
 
                 clearSearchResults();
 
                 IsSearching.Value = true;
-                _watcher.EnableRaisingEvents = false;
-                _watcher.Path = DirectoryPath.Value;
 
                 //NOTE:検索条件はバックグラウンドから UI のコレクション(ExcludeExtensions 等)を触らないよう、開始時にここで確定させる。
-                var rootPath = DirectoryPath.Value.Last() == '\\' ? DirectoryPath.Value : $"{DirectoryPath.Value}\\";
+                //     ルートは正規化し(「..」や相対パス、末尾の「\」の有無を揃える)、列挙・相対パス・監視・完了判定で同じ値を使う。
+                var rootPath = NormalizeSearchRootPath(DirectoryPath.Value);
+
+                //NOTE:列挙後・行の構築前に保存されたファイルも検出できるよう、監視は列挙より前に開始する。
+                //     まだ一覧にない行への通知はパスを記録し、検索完了後に更新日時を取り直す。
+                var changedPathsDuringSearch = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+                _changedPathsDuringSearch = changedPathsDuringSearch;
+                _watcher.EnableRaisingEvents = false;
+                _watcher.Path = rootPath;
+                _watcher.EnableRaisingEvents = true;
                 var shouldRecurseDirectory = CreateValidatorForDirectory(IsExcludeDotStartDirectory.Value, IsExcludeHiddenDirectory.Value, IsExcludeSystemDirectory.Value);
                 var shouldIncludeFile = CreateValidatorForFile(IsExcludeDotStartFile.Value, IsExcludeHiddenFile.Value, IsExcludeSystemFile.Value, ExcludeExtensions.Where(ext => ext.Enabled.Value).Select(ext => ext.ExtensionText.StartsWith(".") ? ext.ExtensionText : $".{ext.ExtensionText}"));
 
@@ -563,6 +565,19 @@ namespace FlatFileList
                     FlushPending();
                     SuccessedCount.Value = builtCount;
 
+                    //NOTE:行は列挙時の更新日時で構築するため、その後に保存されたファイルは古い値のままになる。
+                    //     検索中に通知を受けたパスのうち一覧に登録された行だけ、取り直す(変更のないファイルには I/O が発生しない)。
+                    _changedPathsDuringSearch = null;
+                    var changedItems = changedPathsDuringSearch.Keys
+                                                               .Select(path => _filePropertiesByPath.TryGetValue(path, out var item) ? item : null)
+                                                               .OfType<FileProperty>()
+                                                               .ToList();
+                    if (changedItems.Count > 0)
+                    {
+                        //NOTE:前回保存日時はこの後の一括取得で読み出すため、ここでは更新日時だけを取り直す。
+                        StartUpdatingChangedItems(changedItems, true);
+                    }
+
                     Debug.WriteLine($"3.{DateTime.Now.ToString()}");
 
                     //NOTE:以前は列ごとに全行を走査していた(20回)。構築時に記録した最大の深さから一度に決める。
@@ -586,7 +601,9 @@ namespace FlatFileList
 
             }).AddTo(_disposable);
 
-            var searchCompleted = Observable.CombineLatest(CanExecuteOfSearch, IsSearching, RootPath, DirectoryPath, (canExecute, isSearching, rootPath, directoryPath) => canExecute && !isSearching && (rootPath.Trim('\\') == directoryPath)).ToReadOnlyReactivePropertySlim().AddTo(_disposable);
+            //NOTE:DirectoryPath の変更直後は CanExecuteOfSearch だけが先に更新され、古いパス(空文字など)と組み合わさることがある。
+            //     正規化(Path.GetFullPath)が例外を出すとストリームが止まるため、存在するフォルダーの場合だけ正規化して比較する。
+            var searchCompleted = Observable.CombineLatest(CanExecuteOfSearch, IsSearching, RootPath, DirectoryPath, (canExecute, isSearching, rootPath, directoryPath) => canExecute && !isSearching && Directory.Exists(directoryPath) && (rootPath == NormalizeSearchRootPath(directoryPath))).ToReadOnlyReactivePropertySlim().AddTo(_disposable);
 
             _ = searchCompleted.Where(b => b && !IsIgnoreGettingLastSaveTime.Value && !IsLastSaveTimeRefreshing.Value).Subscribe(_ =>
             {
@@ -790,6 +807,52 @@ namespace FlatFileList
         /// <param name="p">対象のファイルまたはフォルダーのパス。</param>
         /// <returns>エクスプローラー用の引数。対象が存在しない場合は空文字。</returns>
         private static string CreateExploereArgument(string p) => File.Exists(p) ? $"/select,{p}" : Directory.Exists(p) ? p : string.Empty;
+
+        /// <summary>
+        /// 検索ルートのパスを正規化する。絶対パスに変換し(「..」や相対パスを解決)、末尾を「\」で終わる形に揃える。
+        /// </summary>
+        /// <param name="path">入力されたフォルダーパス。存在するフォルダーのパスであること(空文字などは例外となる)。</param>
+        /// <returns>正規化した検索ルートのパス(末尾は「\」)。</returns>
+        private static string NormalizeSearchRootPath(string path)
+        {
+            var fullPath = Path.GetFullPath(path);
+            return Path.EndsInDirectorySeparator(fullPath) ? fullPath : $"{fullPath}\\";
+        }
+
+        /// <summary>
+        /// 変更されたファイルの行について、更新日時と前回保存日時の取り直しを STA スレッドで開始する。
+        /// </summary>
+        /// <param name="items">取り直す行。空の場合は何もしない。</param>
+        /// <param name="isIgnoreGettingLastSaveTime"><see langword="true"/> の場合は前回保存日時を取得せず、更新日時だけを取り直す。</param>
+        /// <remarks>
+        /// Office は一時ファイル経由で保存するため、通知直後は置き換え中でファイルが存在しない・読み出しに失敗することがある。
+        /// 失敗した行は以前の値を保持したまま、更新日時と前回保存日時の両方が取得できるまで間隔を空けて再試行する。
+        /// </remarks>
+        private static void StartUpdatingChangedItems(List<FileProperty> items, bool isIgnoreGettingLastSaveTime)
+        {
+            if (items.Count == 0)
+            {
+                return;
+            }
+
+            Thread t = new(() =>
+            {
+                var pending = items;
+                for (var attempt = 0; attempt < WatcherRetryCount && pending.Count > 0; attempt++)
+                {
+                    if (attempt > 0)
+                    {
+                        Thread.Sleep(WatcherRetryInterval);
+                    }
+
+                    //NOTE:片方が失敗しても、もう片方は取得できた時点で反映するため、短絡評価しない(&)。
+                    pending = pending.Where(item => !(item.UpdateLastWriteTime() & item.UpdateModifiedTime(isIgnoreGettingLastSaveTime))).ToList();
+                }
+            })
+            { IsBackground = true };
+            t.SetApartmentState(ApartmentState.STA);
+            t.Start();
+        }
 
         /// <summary>
         /// ファイルの拡張子に対応するカスタム起動設定を考慮して、<see cref="ProcessStartInfo"/> を生成する。

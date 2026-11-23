@@ -34,6 +34,8 @@ namespace FlatFileList.Datas
         private bool _isHighlighted = true;
         /// <summary>前回保存日時の取得を開始済みかどうか(0: 未取得, 1: 取得済み)。並列取得時の二重取得を防ぐ。</summary>
         private int _modifiedTimeLoadState;
+        /// <summary>前回保存日時の読み出しから反映までを直列化するロック(一括取得とファイル監視の競合を防ぐ)。</summary>
+        private readonly Lock _modifiedTimeLock = new();
 
         /// <summary>ファイルの更新日時(ミリ秒精度)。</summary>
         public DateTime LastWriteTime
@@ -167,9 +169,11 @@ namespace FlatFileList.Datas
             ExtensionText = Path.GetExtension(FileName);
             FileIcon = FilePath.FileIconToBitmapSource();
 
-            var relativeFilePath = FilePath.Replace(Path.GetDirectoryName(searchDirectoryPath) ?? string.Empty, string.Empty);
+            //NOTE:文字列置換ではルートの表記揺れ(末尾の「\」や大文字小文字)で相対パスが崩れるため、パスとして相対化する。
+            //     従来の表記(先頭に「\」を1つ付けた相対パス)に合わせる。
+            var relativeFilePath = $"\\{Path.GetRelativePath(searchDirectoryPath, FilePath)}";
             RelativeFilePath = $"\\{relativeFilePath}";
-            _relativeDirectoryPath = (Path.GetDirectoryName(relativeFilePath) ?? string.Empty).Replace(Path.GetDirectoryName(searchDirectoryPath) ?? string.Empty, string.Empty);
+            _relativeDirectoryPath = Path.GetDirectoryName(relativeFilePath) ?? string.Empty;
 
             var directories = GetDirectories(relativeFilePath);
             DirectoryDepth = directories.Count;
@@ -180,10 +184,23 @@ namespace FlatFileList.Datas
 
         /// <summary>
         /// ファイルシステムから更新日時(LastWriteTime)を取得し直して <see cref="LastWriteTime"/> を更新する。
+        /// ファイルが存在しない場合(保存途中で置き換え中など)は、以前の値を保持する。
         /// </summary>
-        public void UpdateLastWriteTime()
+        /// <returns>取得できた場合は <see langword="true"/>。ファイルが存在しない場合は <see langword="false"/>。</returns>
+        /// <remarks>
+        /// <see cref="File.GetLastWriteTime(string)"/> はファイルが存在しないと 1601/01/01 を返すため、
+        /// 存在を確認できた場合だけ反映する。
+        /// </remarks>
+        public bool UpdateLastWriteTime()
         {
-            LastWriteTime = TruncateToMilliseconds(File.GetLastWriteTime(FilePath));
+            var fileInfo = new FileInfo(FilePath);
+            if (!fileInfo.Exists)
+            {
+                return false;
+            }
+
+            LastWriteTime = TruncateToMilliseconds(fileInfo.LastWriteTime);
+            return true;
         }
 
         /// <summary>
@@ -205,13 +222,18 @@ namespace FlatFileList.Datas
                 return true;
             }
 
-            if (!DocumentDateSavedReader.TryRead(FilePath, out var dateSaved))
+            //NOTE:一覧の一括取得とファイル監視が同じ行を同時に更新すると、先に読んだ古い値が
+            //     後から読んだ新しい値を上書きすることがある。読み出しから反映までを行ごとに直列化する。
+            lock (_modifiedTimeLock)
             {
-                return false;
-            }
+                if (!DocumentDateSavedReader.TryRead(FilePath, out var dateSaved))
+                {
+                    return false;
+                }
 
-            ModifiedTime = dateSaved;
-            return true;
+                ModifiedTime = dateSaved;
+                return true;
+            }
         }
 
         /// <summary>

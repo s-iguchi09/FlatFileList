@@ -22,16 +22,17 @@ namespace FlatFileList.Utilities
         {
             CheckReentrancy();
 
-            var added = false;
-            foreach (var item in items)
-            {
-                Items.Add(item);
-                added = true;
-            }
-
-            if (!added)
+            //NOTE:遅延評価の列が途中で例外を送出すると、追加済みの要素だけが残り通知と不整合になる。
+            //     先に列挙し終えてから追加する(配列などのコレクションはコピーせずそのまま使う)。
+            var adding = items as ICollection<T> ?? items.ToList();
+            if (adding.Count == 0)
             {
                 return;
+            }
+
+            foreach (var item in adding)
+            {
+                Items.Add(item);
             }
 
             OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));

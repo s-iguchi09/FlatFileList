@@ -64,8 +64,10 @@ namespace FlatFileList.Datas
             Name = Path.GetFileName(Path.GetDirectoryName(filePath)) ?? string.Empty;
             IsEnabled = !string.IsNullOrEmpty(Name);
 
-            var relativePath = Path.GetDirectoryName(filePath)?.Replace(rootPath, "") ?? string.Empty;
-            RelativePath = string.IsNullOrEmpty(relativePath) ? "" : $"\\{relativePath}";
+            //NOTE:文字列置換ではルートの表記揺れ(末尾の「\」や大文字小文字)で相対パスが崩れるため、パスとして相対化する。
+            var directoryPath = Path.GetDirectoryName(filePath) ?? string.Empty;
+            var relativePath = string.IsNullOrEmpty(directoryPath) ? "." : Path.GetRelativePath(rootPath, directoryPath);
+            RelativePath = relativePath == "." ? "" : $"\\{relativePath}";
             TargetPath = filePath;
             AbsolutePath = Path.GetDirectoryName(filePath) ?? string.Empty;
         }
@@ -86,8 +88,11 @@ namespace FlatFileList.Datas
     /// </remarks>
     public class DirectoryOpennerCache
     {
-        /// <summary>相対フォルダーパスをキーにした共有インスタンス。</summary>
-        private readonly ConcurrentDictionary<string, DirectoryOpenner> _openners = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>
+        /// 相対フォルダーパスをキーにした共有インスタンス。
+        /// 大文字小文字を区別するフォルダーでは大文字小文字だけが異なるフォルダーが別物になるため、完全一致で比較する。
+        /// </summary>
+        private readonly ConcurrentDictionary<string, DirectoryOpenner> _openners = new(StringComparer.Ordinal);
 
         /// <summary>
         /// 検索ルートを指定してキャッシュを生成する。
