@@ -1,5 +1,6 @@
 using System.Collections;
 using System.ComponentModel;
+using FlatFileList.Utilities.Shell32;
 
 namespace FlatFileList.Datas
 {
@@ -43,12 +44,13 @@ namespace FlatFileList.Datas
         /// <returns>比較器。対応しない場合は <see langword="null"/>。</returns>
         public static FilePropertyComparer? Create(string? sortMemberPath, ListSortDirection direction)
         {
-            //NOTE:文字列は従来の SortDescription(既定の比較 = 現在のカルチャ)と同じ並びになるよう CurrentCulture で比較する。
+            //NOTE:フォルダー名は従来の SortDescription(既定の比較 = 現在のカルチャ)と同じ並びになるよう CurrentCulture で比較する。
             var stringComparer = StringComparer.CurrentCulture;
 
             Comparison<FileProperty>? comparison = sortMemberPath switch
             {
-                nameof(FileProperty.FileName) => (x, y) => stringComparer.Compare(x.FileName, y.FileName),
+                //NOTE:ファイル名はエクスプローラーと同じ並び(数字を数値として比較。「file2」が「file10」より前)にする。
+                nameof(FileProperty.FileName) => (x, y) => ExplorerStringComparer.Instance.Compare(x.FileName, y.FileName),
                 nameof(FileProperty.LastWriteTime) => (x, y) => x.LastWriteTime.CompareTo(y.LastWriteTime),
                 nameof(FileProperty.ModifiedTime) => (x, y) => Nullable.Compare(x.ModifiedTime, y.ModifiedTime),
                 _ => TryGetDirectoryIndex(sortMemberPath, out var index)
