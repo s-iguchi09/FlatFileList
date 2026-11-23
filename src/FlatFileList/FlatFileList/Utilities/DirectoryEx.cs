@@ -26,7 +26,8 @@ namespace FlatFileList.Utilities
         /// <remarks>
         /// <see cref="FileSystemEnumerator{TResult}"/> を用いるため、属性・更新日時は列挙時の検索データから取得され、
         /// ファイルごとの追加のシステム呼び出しは発生しない。リパースポイント(ジャンクション等)の配下は辿らない。
-        /// 起点ディレクトリを開けない場合は例外を送出する。
+        /// 起点ディレクトリへのアクセスが拒否された場合は例外にせず、空の結果を返す(<see cref="EnumerationOptions.IgnoreInaccessible"/>)。
+        /// 起点ディレクトリがそれ以外の理由で開けない場合は例外を送出する。
         /// </remarks>
         public static IEnumerable<FoundFile> EnumerateFiles(string path, FileSystemEnumerable<FoundFile>.FindPredicate shouldRecurse, FileSystemEnumerable<FoundFile>.FindPredicate shouldInclude)
         {
@@ -86,6 +87,10 @@ namespace FlatFileList.Utilities
             /// <summary>
             /// 列挙中のエラーで走査を継続するかどうかを返す。起点ディレクトリを開けない場合のみ例外とする。
             /// </summary>
+            /// <remarks>
+            /// アクセス拒否は <see cref="EnumerationOptions.IgnoreInaccessible"/> により本メソッドより先に読み飛ばされるため、
+            /// 起点ディレクトリへのアクセス拒否は例外にならず、空の結果となる。
+            /// </remarks>
             /// <param name="error">Win32 エラーコード。</param>
             /// <returns>継続する(そのディレクトリを読み飛ばす)場合は <see langword="true"/>。</returns>
             protected override bool ContinueOnError(int error) => _isRootOpened;
