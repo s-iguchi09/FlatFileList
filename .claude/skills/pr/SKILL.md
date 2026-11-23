@@ -38,7 +38,7 @@ description: 現在の変更をPR化し、CodeRabbitのレビュー指摘がゼ�
 
 - **XML ドキュメントコメント必須（日本語）** — 全クラス/メソッド/プロパティ/イベント（private 含む）
 - **MVVM 遵守** — コードビハインド（`*.xaml.cs`）にロジックを書かない（ViewModel / ReactiveProperty へ）
-- **ビルド検証は VS MSBuild**（`dotnet build` 不可。手順・vswhere スニペットは AGENTS.md 参照）
+- **ビルドが通ることを必ず確認する**（`dotnet build` または VS MSBuild。手順・vswhere スニペットは AGENTS.md 参照）
 - **文言はすべて日本語**（コメント・コミット・PR・報告）
 
 ---
@@ -198,7 +198,7 @@ CodeRabbit のレビューは数分かかる。完了を待って自動で次へ
 ### 6. 一括修正（1ラウンド）
 
 - 収集した **全 actionable 指摘を1パスでまとめて修正**。上記「不変条件」を厳守。
-- **MSBuild でビルド検証**（AGENTS.md の vswhere 手順）。失敗したら直してから進む。
+- **ビルド検証**（AGENTS.md の `dotnet build` または vswhere 手順）。失敗したら直してから進む。
 - 日本語メッセージで commit → `git push`。
 - **A（Webhook）のみ**: 対応を終えたレビュースレッドは解決済みにする
   （`mcp__github__resolve_review_thread`）。見送り/反論の場合は理由を 1 回だけ返信してから解決。

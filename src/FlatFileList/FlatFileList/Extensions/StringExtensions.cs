@@ -12,30 +12,23 @@ namespace FlatFileList.Extensions
     public static class StringExtensions
     {
 
-        private static object _syncObj = new object();
-        private static Dictionary<string, BitmapSource?> _extIcons = new Dictionary<string, BitmapSource?>();
-        private static BitmapSource? _directoryIcon = null;
+        /// <summary>アイコンキャッシュへのアクセスを排他する同期オブジェクト。</summary>
+        private static readonly object _syncObj = new();
+        /// <summary>拡張子(大文字小文字を区別しない)ごとのアイコンキャッシュ。</summary>
+        private static readonly Dictionary<string, BitmapSource?> _extIcons = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
-        /// <see cref="Icon.ExtractAssociatedIcon"/> を介して取得した <see cref="Icon"/> の <see cref="Bitmap"/> を返します。
+        /// ファイルの拡張子に関連付けられたアイコンを <see cref="BitmapSource"/> で返します。
         /// </summary>
-        /// <param name="path">アイコンを取得する対象のファイルまたはフォルダーのパス。</param>
-        /// <returns><see cref="Icon"/></returns>
-        /// <remarks><see cref="Icon.ExtractAssociatedIcon"/> は速度が遅くなるため2回目以降はメモリ上に拡張子別に保持したIconを返します。 </remarks>
-        public static BitmapSource? IconToBitmapSource(this string path)
+        /// <param name="filePath">アイコンを取得する対象のファイルのパス。</param>
+        /// <returns>アイコン。取得できない場合は <see langword="null"/>。</returns>
+        /// <remarks>
+        /// <see cref="Icon.ExtractAssociatedIcon"/> は速度が遅いため、2回目以降はメモリ上に拡張子別に保持したアイコンを返します。
+        /// 対象はファイルに限定し、フォルダー判定(Directory.Exists)のシステム呼び出しは行いません。
+        /// </remarks>
+        public static BitmapSource? FileIconToBitmapSource(this string filePath)
         {
-            if (Directory.Exists(path))
-            {
-                if (_directoryIcon is null)
-                {
-                    using var icon = SafeGetExtractAssociatedIcon(path);
-                    _directoryIcon = ConvertToBitmapSource(icon?.ToBitmap());
-
-                }
-                return _directoryIcon;
-            }
-
-            var extension = Path.GetExtension(path).ToLower();
+            var extension = Path.GetExtension(filePath);
             lock (_syncObj)
             {
                 if (_extIcons.TryGetValue(extension, out BitmapSource? val))
@@ -43,9 +36,11 @@ namespace FlatFileList.Extensions
                     return val;
                 }
 
-                using var icon = SafeGetExtractAssociatedIcon(path);
-                _extIcons.Add(extension, ConvertToBitmapSource(icon?.ToBitmap()));
-                return _extIcons.Last().Value;
+                using var icon = SafeGetExtractAssociatedIcon(filePath);
+                using var bitmap = icon?.ToBitmap();
+                var bitmapSource = ConvertToBitmapSource(bitmap);
+                _extIcons.Add(extension, bitmapSource);
+                return bitmapSource;
             }
         }
 

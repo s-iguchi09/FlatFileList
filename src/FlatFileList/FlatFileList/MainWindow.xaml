@@ -12,8 +12,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:sys="clr-namespace:System;assembly=mscorlib"
     Title="{Binding Title.Value}"
-    Width="1000"
-    Height="600"
+    Width="1280"
+    Height="780"
     d:DataContext="{d:DesignInstance local:MainWindowViewModelDesignMode,
                                      IsDesignTimeCreatable=True}"
     d:DesignHeight="1000"
@@ -33,10 +33,17 @@
         <sys:Double x:Key="ButtonSize">32</sys:Double>
         <sys:Double x:Key="ButtonIconSize">30</sys:Double>
         <GridLength x:Key="TextBoxRoundWidth">4</GridLength>
-        <!--  1ボタン + 1ピクセル  -->
-        <Thickness x:Key="OneButtonPadding">0,0,30,0</Thickness>
-        <!--  2ボタン + 1ピクセル  -->
-        <Thickness x:Key="TwoButtonPadding">0,0,61,0</Thickness>
+        <!--  左: 枠と文字の余白 / 右: 1ボタン(ButtonSize) + 角丸分(TextBoxRoundWidth) + 余白。文字がボタンのアイコンに重ならないようにする  -->
+        <Thickness x:Key="OneButtonPadding">6,0,40,0</Thickness>
+        <!--  左: 枠と文字の余白 / 右: 2ボタン(ButtonSize×2) + 角丸分(TextBoxRoundWidth) + 余白  -->
+        <Thickness x:Key="TwoButtonPadding">6,0,72,0</Thickness>
+        <!--  入力欄の左に置く項目名。入力欄と文字が接しないよう右に余白を取る  -->
+        <Style
+            x:Key="LabelTextBlockStyle"
+            BasedOn="{StaticResource {x:Type TextBlock}}"
+            TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
         <Style x:Key="PackIconButtonStyle" TargetType="materialDesign:PackIcon">
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -335,10 +342,9 @@
         <Grid
             Grid.Row="0"
             HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"
-            IsEnabled="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}">
+            VerticalAlignment="Stretch">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="350" />
+                <ColumnDefinition Width="420" />
                 <ColumnDefinition Width="auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -347,6 +353,7 @@
                 Grid.Column="0"
                 Padding="0,0,12,0"
                 HorizontalAlignment="Stretch"
+                Focusable="False"
                 VerticalScrollBarVisibility="Auto">
                 <Grid HorizontalAlignment="Stretch" Grid.IsSharedSizeScope="True">
                     <Grid.RowDefinitions>
@@ -359,6 +366,7 @@
                     <GroupBox
                         Grid.Row="0"
                         Grid.Column="0"
+                        IsEnabled="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}"
                         Style="{StaticResource GroupBoxStyle}">
                         <GroupBox.Header>
                             <TextBlock Text="検索条件" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
@@ -391,6 +399,7 @@
                             <TextBlock
                                 Grid.Row="0"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="フォルダーパス" />
                             <TextBox
                                 x:Name="TextBoxSearchDirectoryPath"
@@ -439,6 +448,7 @@
                             <TextBlock
                                 Grid.Row="1"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="取得対象外" />
                             <CheckBox
                                 Grid.Row="1"
@@ -449,26 +459,27 @@
                             <TextBlock
                                 Grid.Row="2"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="検索対象外" />
                             <StackPanel
                                 Grid.Row="2"
                                 Grid.Column="1"
                                 Grid.ColumnSpan="4"
                                 IsEnabled="{Binding ExistsFileLists.Value, Converter={StaticResource InvertedBoolConverter}}">
-                                <WrapPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                <!--  縦に6行並ぶとスクロールが必要になるため、フォルダー/ファイルを左右に並べて3行に収める。  -->
+                                <UniformGrid HorizontalAlignment="Stretch" Columns="2">
                                     <CheckBox Content="隠しフォルダー" IsChecked="{Binding IsExcludeHiddenDirectory.Value}" />
-                                    <CheckBox Content="システムフォルダー" IsChecked="{Binding IsExcludeSystemDirectory.Value}" />
-                                    <CheckBox Content=".始まりのフォルダー" IsChecked="{Binding IsExcludeDotStartDirectory.Value}" />
-                                </WrapPanel>
-                                <WrapPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                     <CheckBox Content="隠しファイル" IsChecked="{Binding IsExcludeHiddenFile.Value}" />
+                                    <CheckBox Content="システムフォルダー" IsChecked="{Binding IsExcludeSystemDirectory.Value}" />
                                     <CheckBox Content="システムファイル" IsChecked="{Binding IsExcludeSystemFile.Value}" />
+                                    <CheckBox Content=".始まりのフォルダー" IsChecked="{Binding IsExcludeDotStartDirectory.Value}" />
                                     <CheckBox Content=".始まりのファイル" IsChecked="{Binding IsExcludeDotStartFile.Value}" />
-                                </WrapPanel>
+                                </UniformGrid>
                             </StackPanel>
                             <TextBlock
                                 Grid.Row="3"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="対象外拡張子" />
                             <ItemsControl
                                 Grid.Row="3"
@@ -537,6 +548,7 @@
                                         <TextBlock
                                             Grid.Row="0"
                                             Grid.Column="0"
+                                            Style="{StaticResource LabelTextBlockStyle}"
                                             Text="拡張子" />
                                         <TextBox
                                             Grid.Row="0"
@@ -612,6 +624,7 @@
                     <GroupBox
                         Grid.Row="1"
                         Grid.Column="0"
+                        IsEnabled="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}"
                         Style="{StaticResource GroupBoxStyle}">
                         <GroupBox.Header>
                             <TextBlock Text="フィルター条件" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
@@ -639,6 +652,7 @@
                             <TextBlock
                                 Grid.Row="0"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="ファイル名" />
                             <TextBox
                                 Name="TextBoxFilteringFileName"
@@ -649,7 +663,7 @@
                                 HorizontalAlignment="Stretch"
                                 helper:TextBoxHelper.HideClearButton="True"
                                 x:FieldModifier="private"
-                                Text="{Binding FilteringFileNameText.Value, UpdateSourceTrigger=PropertyChanged, Delay=300}">
+                                Text="{Binding FilteringFileNameText.Value, UpdateSourceTrigger=PropertyChanged}">
                                 <i:Interaction.Behaviors>
                                     <behaviors:TextBoxBehavior x:Name="TextBoxFilteringFileNameBehavior" />
                                 </i:Interaction.Behaviors>
@@ -682,6 +696,7 @@
                             <TextBlock
                                 Grid.Row="1"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="拡張子" />
                             <TextBox
                                 x:Name="TextBoxFilteringExtension"
@@ -692,7 +707,7 @@
                                 HorizontalAlignment="Stretch"
                                 helper:TextBoxHelper.HideClearButton="True"
                                 x:FieldModifier="private"
-                                Text="{Binding FilteringExtensionText.Value, UpdateSourceTrigger=PropertyChanged, Delay=300}">
+                                Text="{Binding FilteringExtensionText.Value, UpdateSourceTrigger=PropertyChanged}">
                                 <i:Interaction.Behaviors>
                                     <behaviors:TextBoxBehavior x:Name="TextBoxFilteringExtensionBehavior" />
                                 </i:Interaction.Behaviors>
@@ -725,6 +740,7 @@
                             <TextBlock
                                 Grid.Row="2"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="フォルダーパス" />
                             <TextBox
                                 x:Name="TextBoxFilteringDirectoryName"
@@ -735,7 +751,7 @@
                                 HorizontalAlignment="Stretch"
                                 helper:TextBoxHelper.HideClearButton="True"
                                 x:FieldModifier="private"
-                                Text="{Binding FilteringDirectoryNameText.Value, UpdateSourceTrigger=PropertyChanged, Delay=300}">
+                                Text="{Binding FilteringDirectoryNameText.Value, UpdateSourceTrigger=PropertyChanged}">
                                 <i:Interaction.Behaviors>
                                     <behaviors:TextBoxBehavior x:Name="TextBoxFilteringDirectoryNameBehavior" />
                                 </i:Interaction.Behaviors>
@@ -768,6 +784,7 @@
                             <TextBlock
                                 Grid.Row="3"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="最終更新日時" />
                             <TextBox
                                 x:Name="TextBoxFilteringLastWriteTime"
@@ -917,6 +934,7 @@
                             <TextBlock
                                 Grid.Row="4"
                                 Grid.Column="0"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="前回保存日時" />
                             <TextBox
                                 x:Name="TextBoxFilteringModifiedTime"
@@ -1067,6 +1085,7 @@
                                 Grid.Row="5"
                                 Grid.Column="0"
                                 materialDesign:TextBlockAssist.AutoToolTip="True"
+                                Style="{StaticResource LabelTextBlockStyle}"
                                 Text="非表示" />
                             <CheckBox
                                 Grid.Row="5"
@@ -1087,9 +1106,11 @@
                             </CheckBox>
                         </Grid>
                     </GroupBox>
+                    <!--  DataGrid を含むため、検索中は IsEnabled ではなくマウス操作の受付だけを止める(無効化すると背景が白くなる)。  -->
                     <GroupBox
                         Grid.Row="2"
                         Grid.Column="0"
+                        IsHitTestVisible="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}"
                         Style="{StaticResource GroupBoxStyle}">
                         <GroupBox.Header>
                             <TextBlock Text="起動アプリ" ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
@@ -1186,7 +1207,11 @@
                 </Grid>
             </ScrollViewer>
             <GridSplitter Grid.Column="1" HorizontalAlignment="Center" />
-            <Grid Grid.Row="0" Grid.Column="2">
+            <!--  Fluent の DataGrid は無効化すると背景が白に切り替わるため、検索中は IsEnabled ではなくマウス操作の受付だけを止める。  -->
+            <Grid
+                Grid.Row="0"
+                Grid.Column="2"
+                IsHitTestVisible="{Binding IsSearching.Value, Converter={StaticResource InvertedBoolConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="auto" />
                     <ColumnDefinition Width="*" />
@@ -1224,6 +1249,7 @@
                     <i:Interaction.Behaviors>
                         <behaviors:DataGridSortResetBehavior />
                         <behaviors:DataGridBehavior x:Name="FileListDataGridBehavior" />
+                        <behaviors:DataGridVisibleItemsBehavior Command="{Binding NotifyVisibleItems}" />
                     </i:Interaction.Behaviors>
                     <DataGrid.InputBindings>
                         <KeyBinding
@@ -1241,8 +1267,8 @@
                             <Style.Triggers>
                                 <MultiDataTrigger>
                                     <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding IsHighlighted.Value}" Value="False" />
-                                        <Condition Binding="{Binding DataContext.IsHighlightVisibled.Value, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}" Value="False" />
+                                        <Condition Binding="{Binding IsHighlighted}" Value="False" />
+                                        <Condition Binding="{Binding Data.IsHighlightVisibled.Value, Source={StaticResource proxy}}" Value="False" />
                                     </MultiDataTrigger.Conditions>
                                     <MultiDataTrigger.Setters>
                                         <Setter Property="Background" Value="WhiteSmoke" />
@@ -1304,7 +1330,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn CanUserSort="True" SortMemberPath="LastWriteTime.Value">
+                        <DataGridTemplateColumn CanUserSort="True" SortMemberPath="LastWriteTime">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
                                     <DataGridColumnHeader.ToolTip>
@@ -1325,7 +1351,7 @@
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch"
                                         ContextMenu="{StaticResource FileCellContextMenu}">
-                                        <TextBlock Text="{Binding LastWriteTimeString.Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding LastWriteTimeString, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                                         <Grid.InputBindings>
                                             <MouseBinding
                                                 Command="{Binding Data.OpenFile, Source={StaticResource proxy}}"
@@ -1336,7 +1362,7 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn CanUserSort="True" SortMemberPath="ModifiedTime.Value">
+                        <DataGridTemplateColumn CanUserSort="True" SortMemberPath="ModifiedTime">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader ToolTipService.InitialShowDelay="{StaticResource ToolTipInitialShowDelay}">
                                     <DataGridColumnHeader.ToolTip>
@@ -1357,7 +1383,7 @@
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch"
                                         ContextMenu="{StaticResource FileCellContextMenu}">
-                                        <TextBlock Text="{Binding ModifiedTimeString.Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding ModifiedTimeString, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                                         <Grid.InputBindings>
                                             <MouseBinding
                                                 Command="{Binding Data.OpenFile, Source={StaticResource proxy}}"
@@ -1370,7 +1396,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[0].Name"
+                            SortMemberPath="Directory1.Name"
                             Visibility="{Binding Data.IsDirectory1Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1393,7 +1419,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[1].Name"
+                            SortMemberPath="Directory2.Name"
                             Visibility="{Binding Data.IsDirectory2Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1416,7 +1442,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[2].Name"
+                            SortMemberPath="Directory3.Name"
                             Visibility="{Binding Data.IsDirectory3Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1439,7 +1465,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[3].Name"
+                            SortMemberPath="Directory4.Name"
                             Visibility="{Binding Data.IsDirectory4Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1462,7 +1488,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[4].Name"
+                            SortMemberPath="Directory5.Name"
                             Visibility="{Binding Data.IsDirectory5Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1485,7 +1511,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[5].Name"
+                            SortMemberPath="Directory6.Name"
                             Visibility="{Binding Data.IsDirectory6Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1508,7 +1534,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[6].Name"
+                            SortMemberPath="Directory7.Name"
                             Visibility="{Binding Data.IsDirectory7Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1531,7 +1557,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[7].Name"
+                            SortMemberPath="Directory8.Name"
                             Visibility="{Binding Data.IsDirectory8Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1554,7 +1580,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[8].Name"
+                            SortMemberPath="Directory9.Name"
                             Visibility="{Binding Data.IsDirectory9Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1577,7 +1603,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[9].Name"
+                            SortMemberPath="Directory10.Name"
                             Visibility="{Binding Data.IsDirectory10Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1600,7 +1626,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[10].Name"
+                            SortMemberPath="Directory11.Name"
                             Visibility="{Binding Data.IsDirectory11Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1623,7 +1649,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[11].Name"
+                            SortMemberPath="Directory12.Name"
                             Visibility="{Binding Data.IsDirectory12Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1646,7 +1672,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[12].Name"
+                            SortMemberPath="Directory13.Name"
                             Visibility="{Binding Data.IsDirectory13Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1669,7 +1695,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[13].Name"
+                            SortMemberPath="Directory14.Name"
                             Visibility="{Binding Data.IsDirectory14Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1692,7 +1718,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[14].Name"
+                            SortMemberPath="Directory15.Name"
                             Visibility="{Binding Data.IsDirectory15Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1715,7 +1741,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[15].Name"
+                            SortMemberPath="Directory16.Name"
                             Visibility="{Binding Data.IsDirectory16Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1738,7 +1764,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[16].Name"
+                            SortMemberPath="Directory17.Name"
                             Visibility="{Binding Data.IsDirectory17Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1761,7 +1787,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[17].Name"
+                            SortMemberPath="Directory18.Name"
                             Visibility="{Binding Data.IsDirectory18Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1784,7 +1810,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[18].Name"
+                            SortMemberPath="Directory19.Name"
                             Visibility="{Binding Data.IsDirectory19Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
@@ -1807,7 +1833,7 @@
                         </DataGridTemplateColumn>
                         <DataGridTemplateColumn
                             CanUserSort="True"
-                            SortMemberPath="Directories[19].Name"
+                            SortMemberPath="Directory20.Name"
                             Visibility="{Binding Data.IsDirectory20Exists.Value, TargetNullValue=Collapsed, FallbackValue=Collapsed, Converter={StaticResource BooleanToVisibility}, Source={StaticResource proxy}}">
                             <DataGridTemplateColumn.Header>
                                 <DataGridColumnHeader>
